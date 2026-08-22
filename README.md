@@ -78,18 +78,20 @@ Beides kann im Admin‑Bereich geändert werden.
 ---
 
 ## 📁 Projektstruktur
-desksharing/
+
+📦 **desksharing/**
 │
-├── public/
-│   ├── index.html
-│   ├── script.js
-│   ├── style.css
-│   └── (Grundriss-Bilder)
+├── 📂 **public/**
+│   ├── 📄 index.html
+│   ├── 📄 script.js
+│   ├── 🎨 style.css
+│   └── 🖼️ Grundriss‑Bilder
 │
-├── data.db        # SQLite-Datenbank (automatisch erzeugt)
-├── server.js      # Node.js Backend
-├── package.json
-└── README.md
+├── 🗄️ **data.db** — SQLite‑Datenbank (automatisch erzeugt)
+├── 🧩 **server.js** — Node.js Backend
+├── 📦 **package.json**
+└── 📘 **README.md**
+
 
 ---
 
