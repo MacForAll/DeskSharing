@@ -78,7 +78,7 @@ Beides kann im Admin‑Bereich geändert werden.
 ---
 
 ## 📁 Projektstruktur
-
+```markdown
 📦 **desksharing/**
 │
 ├── 📂 **public/**
@@ -91,7 +91,7 @@ Beides kann im Admin‑Bereich geändert werden.
 ├── 🧩 **server.js** — Node.js Backend
 ├── 📦 **package.json**
 └── 📘 **README.md**
-
+```
 
 ---
 
