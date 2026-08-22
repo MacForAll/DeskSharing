@@ -50,14 +50,17 @@ Das System benötigt **keine Cloud**, **keine Accounts**, **keine Datenbank‑Se
 ```bash
 git clone https://github.com/MacForAll/desksharing.git
 cd desksharing
+```
 
 ### 2. Abhängigkeiten installieren
 ```bash
 npm install
+```
 
 ### 3. Server starten
 ```bash
 npm start
+```
 
 ### 4. Browser öffnen
 http://localhost:3000
@@ -92,7 +95,7 @@ desksharing/
 
 ## 🖼️ Screenshots (optional)
 
-*(Hier kannst du später Bilder einfügen)*
+*(Hier werden später Bilder eingefügt)*
 
 ## 🛠️ Roadmap / Ideen
 
