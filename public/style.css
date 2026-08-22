@@ -4,6 +4,15 @@ body {
   background: #f4f4f4;
 }
 
+#logo {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 120px;      /* Größe anpassen */
+  z-index: 2000;     /* über allem */
+  opacity: 0.95;     /* leicht elegant */
+}
+
 #adminLoginBtn, #adminLogoutBtn {
   padding: 8px 12px;
   margin-bottom: 10px;
