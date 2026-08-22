@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>DeskBooker</title>
+<link rel="stylesheet" href="style.css">
+
+<style>
+  /* Allgemeine Modal-Optik */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  .modal-box {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 350px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+  }
+
+  .modal-box h3 {
+    margin-top: 0;
+  }
+
+  .modal-box input {
+    width: 100%;
+    padding: 8px;
+    margin: 6px 0;
+  }
+
+  .modal-box button {
+    margin-top: 10px;
+  }
+</style>
+
+</head>
+<body>
+
+<h1>Arbeitsplatz-Buchung (max. 2 Wochen im Voraus)</h1>
+
+<button id="adminLoginBtn">Admin Login</button>
+<button id="adminLogoutBtn" style="display:none;">Logout</button>
+
+<label>Datum wählen:</label>
+<input type="date" id="selectedDate">
+
+<button id="exportDayBtn">Export Tag (.ics)</button>
+
+<div id="floorplan">
+  <img id="floorImg" src="https://via.placeholder.com/1000x700/cccccc/666666?text=Grundriss" />
+</div>
+
+<!-- Buchungsmodal -->
+<div id="overlay"></div>
+<div id="modal">
+  <h3>Tisch <span id="deskName"></span> buchen</h3>
+  <p id="deskInfo"></p>
+
+  <div id="fullDayOption">
+    <button id="btnFullDay">Ganztägig buchen</button>
+  </div>
+
+  <div id="hourlyOption">
+    Von <input type="time" id="startTime" value="09:00">
+    Bis <input type="time" id="endTime" value="17:00">
+    <button id="btnHourly">Stundenweise buchen</button>
+  </div>
+
+  <button onclick="closeModal()">Abbrechen</button>
+</div>
+
+<!-- ADMIN LOGIN MODAL -->
+<div id="loginModal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Admin Login</h3>
+
+    <label>Benutzername:</label>
+    <input type="text" id="loginUser">
+
+    <label>Passwort:</label>
+    <input type="password" id="loginPass">
+
+    <button onclick="confirmAdminLogin()">Login</button>
+    <button onclick="closeLoginModal()">Abbrechen</button>
+  </div>
+</div>
+
+<!-- ADMIN PASSWORT ÄNDERN MODAL -->
+<div id="pwModal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Passwort ändern</h3>
+
+    <label>Benutzername:</label>
+    <input type="text" id="pwUser">
+
+    <label>Altes Passwort:</label>
+    <input type="password" id="pwOld">
+
+    <label>Neues Passwort:</label>
+    <input type="password" id="pwNew1">
+
+    <label>Neues Passwort wiederholen:</label>
+    <input type="password" id="pwNew2">
+
+    <button onclick="confirmPasswordChange()">Speichern</button>
+    <button onclick="closePwModal()">Abbrechen</button>
+  </div>
+</div>
+
+<!-- ADMIN-BEREICH -->
+<div class="admin" id="adminArea" style="display:none;">
+  <h2>Admin – Einstellungen</h2>
+
+  <h3>Passwort ändern</h3>
+  <button onclick="openPwModal()">Passwort ändern</button>
+
+  <hr>
+
+  <h3>Grundriss ändern</h3>
+  <input type="file" id="floorplanUpload">
+  <button onclick="uploadFloorplan()">Hochladen</button>
+
+  <hr>
+
+  <h3>Neuen Tisch platzieren</h3>
+  Name: <input id="newDeskName" value="Neuer Tisch">
+  Modus:
+  <select id="newDeskMode">
+    <option value="FULLDAY">Ganztägig</option>
+    <option value="HOURLY">Stundenweise</option>
+  </select>
+  <button onclick="enablePlacingMode()">Platzieren aktivieren</button>
+
+  <p>ALT + Drag = verschieben, SHIFT + Drag = Größe ändern, Rechtsklick = löschen</p>
+</div>
+
+<hr>
+
+<h2>Kalender – Arbeitswoche</h2>
+<button onclick="showCalendar()">Kalender anzeigen</button>
+<button id="exportWeekBtn">Export Woche (eine Datei)</button>
+
+<div id="calendarView" style="display:none;">
+  <h3>Arbeitswoche</h3>
+  <button onclick="prevWeek()">← Vorherige Woche</button>
+  <button onclick="nextWeek()">Nächste Woche →</button>
+
+  <table id="calendarTable">
+    <thead>
+      <tr id="calendarHeaderRow">
+        <th>Tisch</th>
+        <th id="calDay1"></th>
+        <th id="calDay2"></th>
+        <th id="calDay3"></th>
+        <th id="calDay4"></th>
+        <th id="calDay5"></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
