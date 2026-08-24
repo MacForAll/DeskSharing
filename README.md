@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/social-preview.png" alt="Desksharing Banner" width="100%">
+  <img src="public/social-preview.png" alt="Desksharing Banner" width="100%">
 </p>
 
 # Desksharing – Arbeitsplatz‑Buchungssystem
@@ -32,6 +32,7 @@ Das System benötigt **keine Cloud**, **keine Accounts**, **keine Datenbank‑Se
 - Admin‑Login mit Passwortfeld (••••)
 - Passwort ändern (Benutzername, altes Passwort, neues Passwort + Wiederholung)
 - Passwort wird sicher im Browser gespeichert (localStorage)
+
 ### 📤 Export
 - Export **eines Tages** als ICS pro Tisch
 - Export **einer Woche** als **eine einzige ICS‑Datei**
@@ -48,8 +49,8 @@ Das System benötigt **keine Cloud**, **keine Accounts**, **keine Datenbank‑Se
 
 ### 1. Repository klonen
 ```bash
-git clone https://github.com/MacForAll/desksharing.git
-cd desksharing
+git clone https://github.com/MacForAll/DeskSharing.git
+cd DeskSharing
 ```
 
 ### 2. Abhängigkeiten installieren
@@ -66,6 +67,7 @@ npm start
 http://localhost:3000
 
 ---
+
 ## 🔧 Admin‑Login
 
 Standard‑Zugangsdaten:
@@ -79,7 +81,7 @@ Beides kann im Admin‑Bereich geändert werden.
 
 ## 📁 Projektstruktur
 ```markdown
-📦 **desksharing/**
+📦 **DeskSharing/**
 │
 ├── 📂 **public/**
 │   ├── 📄 index.html
@@ -94,10 +96,6 @@ Beides kann im Admin‑Bereich geändert werden.
 ```
 
 ---
-
-## 🖼️ Screenshots (optional)
-
-*(Hier werden später Bilder eingefügt)*
 
 ## 🛠️ Roadmap / Ideen
 
@@ -115,8 +113,6 @@ Beides kann im Admin‑Bereich geändert werden.
 
 Dieses Projekt ist unter der **MIT‑Lizenz** veröffentlicht.
 Siehe Datei `LICENSE`.
-
-# Desksharing – Arbeitsplatz‑Buchungssystem
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18.x-339933.svg?logo=node.js&logoColor=white)
