@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/social-preview.png" alt="Desksharing Banner" width="100%">
+  <img src="public/assets/social-preview.png" alt="Desksharing Banner" width="100%">
 </p>
 
 # Desksharing – Arbeitsplatz‑Buchungssystem
@@ -67,7 +67,6 @@ npm start
 http://localhost:3000
 
 ---
-
 ## 🔧 Admin‑Login
 
 Standard‑Zugangsdaten:
@@ -75,19 +74,22 @@ Standard‑Zugangsdaten:
 - **Benutzername:** `admin`
 - **Passwort:** `admin`
 
+Werden beim Server-Start gesetzt.
 Beides kann im Admin‑Bereich geändert werden.
 
 ---
 
 ## 📁 Projektstruktur
 ```markdown
-📦 **DeskSharing/**
+📦 **desksharing/**
 │
 ├── 📂 **public/**
 │   ├── 📄 index.html
 │   ├── 📄 script.js
 │   ├── 🎨 style.css
-│   └── 🖼️ Grundriss‑Bilder
+│   ├── 🖼️ assets
+│   └── 🖼️ uploads
+
 │
 ├── 🗄️ **data.db** — SQLite‑Datenbank (automatisch erzeugt)
 ├── 🧩 **server.js** — Node.js Backend
@@ -113,6 +115,8 @@ Beides kann im Admin‑Bereich geändert werden.
 
 Dieses Projekt ist unter der **MIT‑Lizenz** veröffentlicht.
 Siehe Datei `LICENSE`.
+
+# Desksharing – Arbeitsplatz‑Buchungssystem
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18.x-339933.svg?logo=node.js&logoColor=white)
