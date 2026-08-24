@@ -2,6 +2,9 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,7 +13,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+app.use(session({
+  secret: 'deskbooker-secret',
+  resave: false,
+  saveUninitialized: false
+}));
+
 const db = new sqlite3.Database('./data.db');
+
+// Multer für Raumplan-Upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'public/uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, 'floorplan.png');
+  }
+});
+
+const upload = multer({ storage: storage });
+
+app.post('/upload-floorplan', upload.single('file'), (req, res) => {
+  // Optional: Admin-Check
+  // if (!req.session || !req.session.isAdmin) {
+  //   return res.status(403).json({ success: false });
+  // }
+  res.json({ success: true });
+});
 
 // Tabellen erstellen
 db.serialize(() => {
@@ -32,6 +61,74 @@ db.serialize(() => {
     startTime TEXT,
     endTime TEXT
   )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    passwordHash TEXT
+  )`);
+
+  // Standard-Admin anlegen, falls nicht vorhanden
+  db.get("SELECT * FROM admins WHERE username = 'admin'", (err, row) => {
+    if (!row) {
+      const hash = bcrypt.hashSync("admin", 10);
+      db.run(
+        "INSERT INTO admins (username, passwordHash) VALUES (?, ?)",
+        ["admin", hash],
+        () => console.log("Standard-Admin angelegt: admin / admin")
+      );
+    }
+  });
+});
+
+// Admin-Login
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+
+  db.get("SELECT * FROM admins WHERE username = ?", [username], (err, row) => {
+    if (err || !row) return res.json({ success: false });
+
+    const ok = bcrypt.compareSync(password, row.passwordHash);
+    if (!ok) return res.json({ success: false });
+
+    req.session.isAdmin = true;
+    req.session.adminUser = username;
+    res.json({ success: true });
+  });
+});
+
+// Admin-Status
+app.get('/api/admin/status', (req, res) => {
+  res.json({ isAdmin: req.session?.isAdmin === true, user: req.session?.adminUser || null });
+});
+
+// Admin-Logout
+app.post('/api/admin/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.json({ success: true });
+  });
+});
+
+// Admin-Passwort ändern
+app.post('/api/admin/change-password', (req, res) => {
+  const { username, oldPassword, newPassword } = req.body;
+
+  db.get("SELECT * FROM admins WHERE username = ?", [username], (err, row) => {
+    if (err || !row) return res.json({ success: false, reason: "user" });
+
+    const ok = bcrypt.compareSync(oldPassword, row.passwordHash);
+    if (!ok) return res.json({ success: false, reason: "old" });
+
+    const newHash = bcrypt.hashSync(newPassword, 10);
+    db.run(
+      "UPDATE admins SET passwordHash=? WHERE id=?",
+      [newHash, row.id],
+      (err2) => {
+        if (err2) return res.json({ success: false });
+        res.json({ success: true });
+      }
+    );
+  });
 });
 
 // Tische + Buchungen laden

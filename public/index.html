@@ -57,7 +57,7 @@
 <button id="exportDayBtn">Export Tag (.ics)</button>
 
 <div id="floorplan">
-  <img id="floorImg" src="https://via.placeholder.com/1000x700/cccccc/666666?text=Grundriss" />
+  <img id="floorImg" src="/uploads/floorplan.png" alt="Raumplan">
 </div>
 
 <!-- Buchungsmodal -->
@@ -127,8 +127,10 @@
   <hr>
 
   <h3>Grundriss ändern</h3>
-  <input type="file" id="floorplanUpload">
-  <button onclick="uploadFloorplan()">Hochladen</button>
+  <div id="uploadContainer">
+    <input type="file" id="floorplanInput" accept="image/*">
+    <button onclick="uploadFloorplan()">Raumplan hochladen</button>
+  </div>
 
   <hr>
 

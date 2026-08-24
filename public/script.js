@@ -1,3 +1,4 @@
+// Initialisierung und globale Variablen
 let desks = [];
 let bookings = [];
 let placingMode = false;
@@ -15,12 +16,12 @@ loadFromServer();
 setupAdminLogin();
 setupExportButtons();
 
+// Raumplan IMMER vom Server laden
 window.addEventListener('load', () => {
-  const saved = localStorage.getItem('floorplanUrl');
-  if (saved) document.getElementById('floorImg').src = saved;
+  document.getElementById('floorImg').src = '/uploads/floorplan.png?' + Date.now();
 });
 
-// ==================== ADMIN LOGIN ====================
+// Admin Login
 function setupAdminLogin() {
   const adminArea = document.getElementById('adminArea');
   const loginBtn = document.getElementById('adminLoginBtn');
@@ -29,16 +30,22 @@ function setupAdminLogin() {
   adminArea.style.display = "none";
   logoutBtn.style.display = "none";
 
-  loginBtn.onclick = () => {
-    openLoginModal();
-  };
+  loginBtn.onclick = () => openLoginModal();
+  logoutBtn.onclick = () => adminLogout();
 
-  logoutBtn.onclick = () => {
-    isAdmin = false;
-    adminArea.style.display = "none";
-    loginBtn.style.display = "inline-block";
-    logoutBtn.style.display = "none";
-  };
+  checkAdminStatus();
+}
+
+async function checkAdminStatus() {
+  const resp = await fetch('/api/admin/status');
+  const data = await resp.json();
+
+  if (data.isAdmin) {
+    isAdmin = true;
+    document.getElementById('adminArea').style.display = "block";
+    document.getElementById('adminLoginBtn').style.display = "none";
+    document.getElementById('adminLogoutBtn').style.display = "inline-block";
+  }
 }
 
 // Öffnet das Login-Modal
@@ -52,25 +59,40 @@ function closeLoginModal() {
 }
 
 // Bestätigt den Admin-Login
-function confirmAdminLogin() {
-  const userInput = document.getElementById("loginUser").value.trim();
-  const passInput = document.getElementById("loginPass").value.trim();
+async function confirmAdminLogin() {
+  const username = document.getElementById("loginUser").value.trim();
+  const password = document.getElementById("loginPass").value.trim();
 
-  const storedUser = localStorage.getItem("adminUser") || "admin";
-  const storedPass = localStorage.getItem("adminPass") || "admin";
+  const resp = await fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
 
-  if (userInput === storedUser && passInput === storedPass) {
+  const data = await resp.json();
+
+  if (data.success) {
     isAdmin = true;
     document.getElementById('adminArea').style.display = "block";
     document.getElementById('adminLoginBtn').style.display = "none";
     document.getElementById('adminLogoutBtn').style.display = "inline-block";
     closeLoginModal();
   } else {
-    alert("Falsche Zugangsdaten");
+    alert("Login fehlgeschlagen");
   }
 }
 
-// ==================== ADMIN – PASSWORT ÄNDERN ====================
+// Admin-Logout
+async function adminLogout() {
+  await fetch('/api/admin/logout', { method: 'POST' });
+
+  isAdmin = false;
+  document.getElementById('adminArea').style.display = "none";
+  document.getElementById('adminLoginBtn').style.display = "inline-block";
+  document.getElementById('adminLogoutBtn').style.display = "none";
+}
+
+// Passwort ändern
 function openPwModal() {
   document.getElementById("pwModal").style.display = "flex";
 }
@@ -79,74 +101,95 @@ function closePwModal() {
   document.getElementById("pwModal").style.display = "none";
 }
 
-function confirmPasswordChange() {
-  const storedUser = localStorage.getItem("adminUser") || "admin";
-  const storedPass = localStorage.getItem("adminPass") || "admin";
-
-  const user = document.getElementById("pwUser").value.trim();
+async function confirmPasswordChange() {
+  const username = document.getElementById("pwUser").value.trim();
   const oldPass = document.getElementById("pwOld").value.trim();
   const newPass1 = document.getElementById("pwNew1").value.trim();
   const newPass2 = document.getElementById("pwNew2").value.trim();
 
-  if (user !== storedUser) return alert("Unbekannter Benutzer.");
-  if (oldPass !== storedPass) return alert("Altes Passwort falsch.");
   if (!newPass1 || !newPass2) return alert("Neues Passwort darf nicht leer sein.");
   if (newPass1 !== newPass2) return alert("Neue Passwörter stimmen nicht überein.");
 
-  localStorage.setItem("adminPass", newPass1);
+  const resp = await fetch('/api/admin/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username,
+      oldPassword: oldPass,
+      newPassword: newPass1
+    })
+  });
+
+  const data = await resp.json();
+
+  if (!data.success) {
+    if (data.reason === "user") alert("Unbekannter Benutzer.");
+    else if (data.reason === "old") alert("Altes Passwort falsch.");
+    else alert("Fehler beim Speichern.");
+    return;
+  }
 
   alert("Passwort erfolgreich geändert.");
   closePwModal();
 }
 
-// ==================== EXPORT BUTTONS ====================
-function setupExportButtons() {
-  document.getElementById("exportDayBtn").onclick = () => {
-    const date = document.getElementById("selectedDate").value;
-    exportDay(date);
-  };
+// Server Upload des Raumplans
+function uploadFloorplan() {
+  if (!isAdmin) return alert("Nur Admins dürfen den Grundriss ändern.");
 
-  document.getElementById("exportWeekBtn").onclick = () => {
-    exportWeek();
-  };
-}
+  const fileInput = document.getElementById('floorplanInput');
+  const file = fileInput.files[0];
 
-function normalizeDate(date) {
-  return date.trim().slice(0, 10);
-}
+  if (!file) {
+    alert("Bitte eine Datei auswählen.");
+    return;
+  }
 
-function downloadICS(deskId, date) {
-  date = normalizeDate(date);
-  const url = `/api/ical?deskId=${deskId}&date=${date}`;
-  window.location.href = url;
-}
+  const formData = new FormData();
+  formData.append('file', file);
 
-function exportDay(date) {
-  date = normalizeDate(date);
-  desks.forEach(desk => {
-    downloadICS(desk.id, date);
+  fetch('/upload-floorplan', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById('floorImg').src = '/uploads/floorplan.png?' + Date.now();
+    } else {
+      alert("Fehler beim Hochladen.");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Upload fehlgeschlagen.");
   });
 }
 
-function exportWeek() {
-  const start = calendarStart.toISOString().slice(0, 10);
-  window.location.href = `/api/ical-week?start=${start}`;
+// Tisch Platzierung, Drag & Resize, Kalender, Buchung
+// ==================== MODAL ====================
+function openModal(desk, date) {
+  currentDesk = desk;
+
+  document.getElementById('deskName').innerText = desk.name;
+  document.getElementById('deskInfo').innerText = `Datum: ${date}`;
+
+  document.getElementById('hourlyOption').style.display =
+    desk.mode === 'HOURLY' ? 'block' : 'none';
+
+  document.getElementById('overlay').style.display = 'block';
+  document.getElementById('modal').style.display = 'block';
+
+  document.getElementById('btnFullDay').onclick = () => book('FULLDAY');
+  document.getElementById('btnHourly').onclick = () => book('HOURLY');
 }
 
-// ==================== SERVER ====================
-async function loadFromServer() {
-  const resp = await fetch('/api/desks');
-  const data = await resp.json();
-
-  desks = data.desks;
-  bookings = data.bookings;
-
-  renderDesks();
-  if (document.getElementById('calendarView').style.display === 'block') {
-    renderCalendar();
-  }
+function closeModal() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('modal').style.display = 'none';
 }
 
+// ==================== BUCHUNG ====================
 async function book(mode) {
   const date = normalizeDate(document.getElementById('selectedDate').value);
 
@@ -180,6 +223,20 @@ async function book(mode) {
 
   closeModal();
   loadFromServer();
+}
+
+// ==================== SERVER-DATEN LADEN ====================
+async function loadFromServer() {
+  const resp = await fetch('/api/desks');
+  const data = await resp.json();
+
+  desks = data.desks;
+  bookings = data.bookings;
+
+  renderDesks();
+  if (document.getElementById('calendarView').style.display === 'block') {
+    renderCalendar();
+  }
 }
 
 // ==================== UI ====================
@@ -243,42 +300,7 @@ function renderDesks() {
   });
 }
 
-function openModal(desk, date) {
-  currentDesk = desk;
-
-  document.getElementById('deskName').innerText = desk.name;
-  document.getElementById('deskInfo').innerText = `Datum: ${date}`;
-
-  document.getElementById('hourlyOption').style.display =
-    desk.mode === 'HOURLY' ? 'block' : 'none';
-
-  document.getElementById('overlay').style.display = 'block';
-  document.getElementById('modal').style.display = 'block';
-
-  document.getElementById('btnFullDay').onclick = () => book('FULLDAY');
-  document.getElementById('btnHourly').onclick = () => book('HOURLY');
-}
-
-function closeModal() {
-  document.getElementById('overlay').style.display = 'none';
-  document.getElementById('modal').style.display = 'none';
-}
-
-// ==================== ADMIN ====================
-async function uploadFloorplan() {
-  if (!isAdmin) return alert("Nur Admins dürfen den Grundriss ändern.");
-
-  const file = document.getElementById('floorplanUpload').files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('floorImg').src = e.target.result;
-    localStorage.setItem('floorplanUrl', e.target.result);
-  };
-  reader.readAsDataURL(file);
-}
-
+// ==================== TISCH PLATZIEREN ====================
 function enablePlacingMode() {
   if (!isAdmin) return alert("Nur Admins dürfen Tische platzieren.");
   placingMode = true;
@@ -315,7 +337,7 @@ document.getElementById('floorplan').addEventListener('click', async (e) => {
   loadFromServer();
 });
 
-// ==================== Drag & Resize ====================
+// ==================== DRAG & RESIZE ====================
 function makeDraggableResizable(div, desk) {
   let startX, startY, startW, startH;
 
@@ -364,7 +386,7 @@ function makeDraggableResizable(div, desk) {
   };
 }
 
-// ==================== Kalender – Arbeitswoche ====================
+// ==================== KALENDER ====================
 function showCalendar() {
   document.getElementById('calendarView').style.display = 'block';
   renderCalendar();
@@ -493,4 +515,38 @@ async function bookCalendar(mode, date) {
   closeModal();
   loadFromServer();
   renderCalendar();
+}
+
+// ==================== ICS EXPORT ====================
+function normalizeDate(date) {
+  return date.trim().slice(0, 10);
+}
+
+function downloadICS(deskId, date) {
+  date = normalizeDate(date);
+  const url = `/api/ical?deskId=${deskId}&date=${date}`;
+  window.location.href = url;
+}
+
+function exportDay(date) {
+  date = normalizeDate(date);
+  desks.forEach(desk => {
+    downloadICS(desk.id, date);
+  });
+}
+
+function exportWeek() {
+  const start = calendarStart.toISOString().slice(0, 10);
+  window.location.href = `/api/ical-week?start=${start}`;
+}
+
+function setupExportButtons() {
+  document.getElementById("exportDayBtn").onclick = () => {
+    const date = document.getElementById("selectedDate").value;
+    exportDay(date);
+  };
+
+  document.getElementById("exportWeekBtn").onclick = () => {
+    exportWeek();
+  };
 }

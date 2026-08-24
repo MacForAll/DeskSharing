@@ -109,3 +109,44 @@ body {
   background: #ccffcc;
   cursor: pointer;
 }
+#adminPanel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px 20px;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  z-index: 3000;
+  width: 260px;
+}
+
+#adminPanel h2 {
+  margin-top: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+#uploadContainer {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#uploadContainer input[type="file"] {
+  padding: 6px;
+}
+
+#uploadContainer button {
+  padding: 8px 12px;
+  background: #0078d4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#uploadContainer button:hover {
+  background: #005fa3;
+}
