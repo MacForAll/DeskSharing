@@ -70,10 +70,13 @@ let calendarStart = new Date();
 calendarStart.setDate(calendarStart.getDate() - calendarStart.getDay() + 1); // Montag
 
 // ==================== INIT ====================
-setMinMaxDate();
-loadFromServer();
-setupAdminLogin();
-setupExportButtons();
+// Nur auf main.html ausführen
+if (document.getElementById('selectedDate')) {
+    setMinMaxDate();
+    loadFromServer();
+    setupAdminLogin();
+    setupExportButtons();
+}
 
 // Raumplan immer neu laden
 window.addEventListener('load', () => {
