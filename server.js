@@ -20,8 +20,6 @@ app.use(session({
 }));
 
 const db = new sqlite3.Database('./data.db');
-ensureDefaultAdminUser();
-
 
 // ==================== MULTER UPLOAD ====================
 const storage = multer.diskStorage({
@@ -65,17 +63,26 @@ db.serialize(() => {
 
 // ==================== DEFAULT ADMIN USER ====================
 async function ensureDefaultAdminUser() {
-  const adminUser = await db.get('SELECT * FROM users WHERE username = ?', ['admin']);
+  const adminUser = await db.get(
+    'SELECT * FROM users WHERE username = ?',
+    ['admin']
+  );
 
   if (!adminUser) {
     console.log("Erstelle Standard-Admin: admin/admin");
 
+    const hash = bcrypt.hashSync("admin", 10);
+
     await db.run(
-      'INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)',
-      ['admin', 'admin', 0]   // 0 = noch kein echter Admin
+      'INSERT INTO users (username, passwordHash, initialPasswordHash) VALUES (?, ?, ?)',
+      ['admin', hash, hash]
     );
   }
 }
+
+// Funktion ausführen
+ensureDefaultAdminUser();
+
 
 // ==================== USER LOGIN ====================
 app.post('/api/login', (req, res) => {
