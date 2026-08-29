@@ -1,51 +1,214 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <title>DeskSharing – Login</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>DeskSharing – Login</title>
+<link rel="stylesheet" href="style.css">
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+  }
+
+  #adminError {
+  font-size: 14px;
+  background: #ffe5e5;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ffb3b3;
+}
+
+  /* Login Box */
+#loginBox {
+  max-width: 360px;
+  margin: auto;
+  padding: 25px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fafafa;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+/* Inputs */
+#loginBox input {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+/* Buttons */
+#loginBox button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* User Login Button */
+#userLoginBtn {
+  background: #2c7be5;
+  color: white;
+}
+
+#userLoginBtn:hover {
+  background: #1a5fc4;
+}
+
+/* Admin Login Button */
+#adminLoginBtn {
+  background: #444;
+  color: white;
+}
+
+#adminLoginBtn:hover {
+  background: #222;
+}
+
+/* Modal Buttons */
+.modal-box button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+/* Login Button (Primary Action) */
+#adminConfirmBtn {
+  background: #2c7be5;
+  color: white;
+  font-weight: bold;
+}
+
+#adminConfirmBtn:hover {
+  background: #1a5fc4;
+  transform: scale(1.02);
+}
+
+/* Cancel Button (Secondary Action) */
+#adminCancelBtn {
+  background: #bbb;
+  color: #fff;
+}
+
+#adminCancelBtn:hover {
+  background: #999;
+  transform: scale(1.02);
+}
+
+/* Headline */
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 28px;
+}
+
+  /* Modal Overlay */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  /* Modal Box */
+  .modal-box {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 350px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+  }
+
+  .modal-box input {
+    width: 100%;
+    padding: 8px;
+    margin: 6px 0;
+  }
+
+  /* Modal Overlay Animation */
+.modal-overlay {
+  animation: fadeIn 0.25s ease-out;
+}
+
+/* Modal Box Animation */
+.modal-box {
+  animation: modalPop 0.25s ease-out;
+}
+
+/* Fade-In Animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Pop-In Animation */
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+</style>
+
 </head>
+<body>
 
-<body class="login-body">
+<h1>DeskSharing – Login</h1>
 
-    <div class="login-container">
-        <img src="social-preview.png" alt="DeskSharing Banner" class="login-banner">
+<div id="loginBox">
+  <h3>User Login</h3>
 
-        <h1 class="login-title">DeskSharing</h1>
+  <input type="text" id="userName" placeholder="Benutzername">
+  <input type="password" id="userPass" placeholder="Passwort">
 
-        <!-- LOGIN FORM -->
-        <form id="loginForm">
-            <input type="text" id="username" placeholder="Benutzername" required>
-            <input type="password" id="password" placeholder="Passwort" required>
+  <button id="userLoginBtn">Login</button>
 
-            <button type="submit" class="login-btn">Login</button>
+  <hr>
 
-            <div class="login-links">
-                <button type="button" id="resetBtn" class="link-btn">Passwort zurücksetzen</button>
-                <button type="button" id="forgotBtn" class="link-btn">Passwort vergessen?</button>
-            </div>
-        </form>
+  <button id="adminLoginBtn" style="background:#444;color:white;">
+    Admin Login
+  </button>
+</div>
 
-        <p id="loginMessage" class="login-message"></p>
-    </div>
+<!-- ADMIN LOGIN MODAL -->
+<div id="adminModal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Admin Login</h3>
 
-    <!-- USER PASSWORD CHANGE MODAL -->
-    <div id="userPwModal" class="modal-overlay">
-        <div class="modal-box">
-            <h3>Neues Passwort setzen</h3>
+    <div id="adminError" style="color:#c00; margin-bottom:10px; display:none;"></div>
 
-            <label>Neues Passwort:</label>
-            <input type="password" id="userNewPass1">
+    <label>Benutzername:</label>
+    <input type="text" id="adminUser">
 
-            <label>Wiederholen:</label>
-            <input type="password" id="userNewPass2">
+    <label>Passwort:</label>
+    <input type="password" id="adminPass">
 
-            <button onclick="confirmUserPasswordChange()">Speichern</button>
-        </div>
-    </div>
+    <button id="adminConfirmBtn">Login</button>
+    <button id="adminCancelBtn">Abbrechen</button>
+  </div>
+</div>
 
-    <!-- SCRIPT -->
-    <script src="script.js"></script>
-
+<script src="script.js"></script>
 </body>
 </html>

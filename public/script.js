@@ -661,3 +661,158 @@ function setupExportButtons() {
     };
   }
 }
+
+// ======================================================
+// ADMIN LOGIN – MODAL SETUP
+// ======================================================
+
+const adminModal = document.getElementById('adminModal');
+const adminLoginBtn = document.getElementById('adminLoginBtn');
+const adminConfirmBtn = document.getElementById('adminConfirmBtn');
+const adminCancelBtn = document.getElementById('adminCancelBtn');
+
+// Modal öffnen
+if (adminLoginBtn) {
+  adminLoginBtn.onclick = () => {
+    adminModal.style.display = "flex";
+  };
+}
+
+// Modal schließen
+if (adminCancelBtn) {
+  adminCancelBtn.onclick = () => {
+    adminModal.style.display = "none";
+  };
+}
+
+// ======================================================
+// MODAL SCHLIESSEN BEI KLICK AUSSERHALB
+// ======================================================
+
+window.addEventListener('click', (event) => {
+  if (event.target === adminModal) {
+    adminModal.style.display = "none";
+  }
+});
+
+// ======================================================
+// MODAL SCHLIESSEN MIT ESC-TASTE
+// ======================================================
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === "Escape") {
+    adminModal.style.display = "none";
+  }
+});
+
+// ======================================================
+// ADMIN-MODAL: FELDER AUTOMATISCH LEEREN
+// ======================================================
+
+function clearAdminFields() {
+  const userField = document.getElementById('adminUser');
+  const passField = document.getElementById('adminPass');
+
+  if (userField) userField.value = "";
+  if (passField) passField.value = "";
+}
+
+// Beim Öffnen leeren
+if (adminLoginBtn) {
+  adminLoginBtn.onclick = () => {
+    clearAdminFields();
+    adminModal.style.display = "flex";
+  };
+}
+
+// Beim Schließen leeren
+if (adminCancelBtn) {
+  adminCancelBtn.onclick = () => {
+    clearAdminFields();
+    adminModal.style.display = "none";
+  };
+}
+
+// ESC schließt + leert
+window.addEventListener('keydown', (event) => {
+  if (event.key === "Escape") {
+    clearAdminFields();
+    adminModal.style.display = "none";
+  }
+});
+
+// Klick außerhalb schließt + leert
+window.addEventListener('click', (event) => {
+  if (event.target === adminModal) {
+    clearAdminFields();
+    adminModal.style.display = "none";
+  }
+});
+
+// ======================================================
+// ADMIN-MODAL: INLINE-FEHLERMELDUNGEN + VALIDIERUNG
+// ======================================================
+
+function showAdminError(msg) {
+  const errBox = document.getElementById('adminError');
+  if (!errBox) return;
+
+  errBox.textContent = msg;
+  errBox.style.display = "block";
+}
+
+function clearAdminError() {
+  const errBox = document.getElementById('adminError');
+  if (!errBox) return;
+
+  errBox.textContent = "";
+  errBox.style.display = "none";
+}
+
+// ======================================================
+// ADMIN LOGIN – BACKEND CALL
+// ======================================================
+
+if (adminConfirmBtn) {
+  adminConfirmBtn.onclick = () => {
+    const username = document.getElementById('adminUser').value.trim();
+    const password = document.getElementById('adminPass').value.trim();
+
+clearAdminError();
+
+if (!username || !password) {
+  showAdminError("Bitte Benutzername und Passwort eingeben.");
+  return;
+}
+
+if (username.length < 3) {
+  showAdminError("Der Benutzername muss mindestens 3 Zeichen lang sein.");
+  return;
+}
+
+if (password.length < 3) {
+  showAdminError("Das Passwort muss mindestens 3 Zeichen lang sein.");
+  return;
+}
+
+
+    fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        adminModal.style.display = "none";
+        window.location.href = "main.html";
+      } else {
+        showAdminError("Admin Login fehlgeschlagen. Bitte prüfen Sie Benutzername und Passwort.");
+      }
+    })
+    .catch(err => {
+      console.error("Admin Login Fehler:", err);
+      alert("Serverfehler beim Admin Login.");
+    });
+  };
+}
