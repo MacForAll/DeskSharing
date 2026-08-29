@@ -318,6 +318,7 @@ app.post('/api/book', (req, res) => {
     }
   );
 });
+});
 
 // ==================== ICS EXPORT ====================
 app.get('/api/ical', (req, res) => {
