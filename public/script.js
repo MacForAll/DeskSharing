@@ -69,19 +69,32 @@ let isAdmin = false;
 let calendarStart = new Date();
 calendarStart.setDate(calendarStart.getDate() - calendarStart.getDay() + 1); // Montag
 
-// ==================== INIT ====================
-// Nur auf main.html ausführen
-if (document.getElementById('selectedDate')) {
+// ==================== MAIN PAGE CHECK ====================
+const isMainPage = document.getElementById('floorplan') !== null;
+
+// ==================== INIT (nur auf main.html) ====================
+if (isMainPage) {
+
     setMinMaxDate();
     loadFromServer();
     setupAdminLogin();
     setupExportButtons();
-}
 
-// Raumplan immer neu laden
-window.addEventListener('load', () => {
-  document.getElementById('floorImg').src = '/uploads/floorplan.png?' + Date.now();
-});
+    // Floorplan reload
+    window.addEventListener('load', () => {
+        const img = document.getElementById('floorImg');
+        if (img) img.src = '/uploads/floorplan.png?' + Date.now();
+    });
+
+    // Klick-Handler für Tischplatzierung
+    const fp = document.getElementById('floorplan');
+    if (fp) {
+        fp.addEventListener('click', async (e) => {
+            if (!placingMode) return;
+            placeDesk(e);
+        });
+    }
+}
 
 // ==================== ADMIN LOGIN ====================
 function setupAdminLogin() {
@@ -265,15 +278,18 @@ async function loadFromServer() {
 
 // ==================== DATE LIMIT ====================
 function setMinMaxDate() {
-  const today = new Date().toISOString().split('T')[0];
+  const input = document.getElementById('selectedDate');
+  if (!input) return; // <-- verhindert Login-Seiten-Absturz
+
+  const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+
   const max = new Date();
   max.setDate(max.getDate() + 14);
+  const maxDate = max.toLocaleDateString('sv-SE'); // YYYY-MM-DD
 
-  const input = document.getElementById('selectedDate');
   input.min = today;
-  input.max = max.toISOString().split('T')[0];
+  input.max = maxDate;
   input.value = today;
-
   input.addEventListener('change', renderDesks);
 }
 
@@ -281,6 +297,8 @@ function setMinMaxDate() {
 function renderDesks() {
   const fp = document.getElementById('floorplan');
   const img = document.getElementById('floorImg');
+  if (!fp || !img) return;
+
   const date = normalizeDate(document.getElementById('selectedDate').value);
 
   const scaleX = img.width / 1000;
@@ -326,41 +344,41 @@ function renderDesks() {
 }
 
 // ==================== PLACE NEW DESK ====================
+async function placeDesk(e) {
+    const img = document.getElementById('floorImg');
+    if (!img) return;
+
+    const scaleX = 1000 / img.width;
+    const scaleY = 700 / img.height;
+
+    const rect = img.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    const newDesk = {
+        name: document.getElementById('newDeskName').value,
+        x,
+        y,
+        w: 120,
+        h: 80,
+        mode: document.getElementById('newDeskMode').value
+    };
+
+    await fetch('/api/desks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newDesk)
+    });
+
+    placingMode = false;
+    loadFromServer();
+}
+
 function enablePlacingMode() {
   if (!isAdmin) return alert("Nur Admins dürfen Tische platzieren.");
   placingMode = true;
   alert("Klicke auf den Grundriss, um einen neuen Tisch zu platzieren.");
 }
-
-document.getElementById('floorplan').addEventListener('click', async (e) => {
-  if (!placingMode) return;
-
-  const img = document.getElementById('floorImg');
-  const scaleX = 1000 / img.width;
-  const scaleY = 700 / img.height;
-
-  const rect = img.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * scaleX;
-  const y = (e.clientY - rect.top) * scaleY;
-
-  const newDesk = {
-    name: document.getElementById('newDeskName').value,
-    x,
-    y,
-    w: 120,
-    h: 80,
-    mode: document.getElementById('newDeskMode').value
-  };
-
-  await fetch('/api/desks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newDesk)
-  });
-
-  placingMode = false;
-  loadFromServer();
-});
 
 // ==================== DRAG & RESIZE ====================
 function makeDraggableResizable(div, desk) {
@@ -494,6 +512,8 @@ function formatShortDate(dateStr) {
 
 function renderCalendar() {
   const tbody = document.querySelector('#calendarTable tbody');
+  if (!tbody) return;
+
   tbody.innerHTML = '';
 
   const weekDays = [];
@@ -528,8 +548,6 @@ function renderCalendar() {
             ? `${b.user} ${b.startTime}-${b.endTime}`
             : `${b.user} (ganztags)`
         ).join("\n");
-
-        td
         td.onclick = () => {
           downloadICS(desk.id, day);
         };
@@ -549,6 +567,7 @@ function renderCalendar() {
   });
 }
 
+// ==================== CALENDAR BOOKING ====================
 function openCalendarBooking(desk, date) {
   currentDesk = desk;
 
@@ -589,6 +608,7 @@ async function bookCalendar(mode, date) {
   });
 
   const data = await resp.json();
+
   if (!data.success) {
     if (data.reason === "Zeitüberschneidung") alert("Zeitüberschneidung!");
     else if (data.reason === "Ganztag blockiert") alert("Ganztagsbuchung blockiert den Tag!");
@@ -625,12 +645,19 @@ function exportWeek() {
 }
 
 function setupExportButtons() {
-  document.getElementById("exportDayBtn").onclick = () => {
-    const date = document.getElementById("selectedDate").value;
-    exportDay(date);
-  };
+  const dayBtn = document.getElementById("exportDayBtn");
+  const weekBtn = document.getElementById("exportWeekBtn");
 
-  document.getElementById("exportWeekBtn").onclick = () => {
-    exportWeek();
-  };
+  if (dayBtn) {
+    dayBtn.onclick = () => {
+      const date = document.getElementById("selectedDate").value;
+      exportDay(date);
+    };
+  }
+
+  if (weekBtn) {
+    weekBtn.onclick = () => {
+      exportWeek();
+    };
+  }
 }
