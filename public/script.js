@@ -1,9 +1,68 @@
-// Initialisierung und globale Variablen
+// ==================== USER LOGIN ====================
+document.addEventListener("DOMContentLoaded", () => {
+
+    const loginForm = document.getElementById("loginForm");
+    if (loginForm) {
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const res = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await res.json();
+
+            if (!data.success) {
+                document.getElementById("loginMessage").textContent = "Login fehlgeschlagen!";
+                return;
+            }
+
+            // Passwort muss geändert werden?
+            if (data.mustChange) {
+                document.getElementById("userPwModal").style.display = "flex";
+            } else {
+                window.location.href = "main.html";
+            }
+        });
+    }
+});
+
+// ==================== USER PASSWORD CHANGE ====================
+async function confirmUserPasswordChange() {
+    const p1 = document.getElementById("userNewPass1").value;
+    const p2 = document.getElementById("userNewPass2").value;
+
+    if (!p1 || !p2 || p1 !== p2) {
+        alert("Passwörter stimmen nicht überein.");
+        return;
+    }
+
+    const res = await fetch('/change-password', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: p1 })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+        window.location.href = "main.html";
+    } else {
+        alert("Fehler beim Speichern.");
+    }
+}
+
+// ==================== GLOBAL VARS ====================
 let desks = [];
 let bookings = [];
 let placingMode = false;
 let currentDesk = null;
-let currentUser = prompt("Dein Name:", "Max Mustermann") || "Anonym";
+let currentUser = "Unbekannt"; // später Session-basiert
 
 let isAdmin = false;
 
@@ -16,12 +75,12 @@ loadFromServer();
 setupAdminLogin();
 setupExportButtons();
 
-// Raumplan IMMER vom Server laden
+// Raumplan immer neu laden
 window.addEventListener('load', () => {
   document.getElementById('floorImg').src = '/uploads/floorplan.png?' + Date.now();
 });
 
-// Admin Login
+// ==================== ADMIN LOGIN ====================
 function setupAdminLogin() {
   const adminArea = document.getElementById('adminArea');
   const loginBtn = document.getElementById('adminLoginBtn');
@@ -48,17 +107,14 @@ async function checkAdminStatus() {
   }
 }
 
-// Öffnet das Login-Modal
 function openLoginModal() {
   document.getElementById("loginModal").style.display = "flex";
 }
 
-// Schließt das Login-Modal
 function closeLoginModal() {
   document.getElementById("loginModal").style.display = "none";
 }
 
-// Bestätigt den Admin-Login
 async function confirmAdminLogin() {
   const username = document.getElementById("loginUser").value.trim();
   const password = document.getElementById("loginPass").value.trim();
@@ -82,7 +138,6 @@ async function confirmAdminLogin() {
   }
 }
 
-// Admin-Logout
 async function adminLogout() {
   await fetch('/api/admin/logout', { method: 'POST' });
 
@@ -92,7 +147,32 @@ async function adminLogout() {
   document.getElementById('adminLogoutBtn').style.display = "none";
 }
 
-// Passwort ändern
+// ==================== ADMIN: USER CREATE ====================
+async function createUser() {
+  const username = document.getElementById("newUserName").value.trim();
+  const initialPassword = document.getElementById("newUserPass").value.trim();
+
+  if (!username || !initialPassword) {
+    alert("Bitte Benutzername und Initialpasswort eingeben.");
+    return;
+  }
+
+  const res = await fetch('/api/admin/create-user', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, initialPassword })
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    alert("Benutzer angelegt.");
+  } else {
+    alert("Benutzer existiert bereits.");
+  }
+}
+
+// ==================== ADMIN PASSWORD CHANGE ====================
 function openPwModal() {
   document.getElementById("pwModal").style.display = "flex";
 }
@@ -133,7 +213,7 @@ async function confirmPasswordChange() {
   closePwModal();
 }
 
-// Server Upload des Raumplans
+// ==================== FLOORPLAN UPLOAD ====================
 function uploadFloorplan() {
   if (!isAdmin) return alert("Nur Admins dürfen den Grundriss ändern.");
 
@@ -166,66 +246,7 @@ function uploadFloorplan() {
   });
 }
 
-// Tisch Platzierung, Drag & Resize, Kalender, Buchung
-// ==================== MODAL ====================
-function openModal(desk, date) {
-  currentDesk = desk;
-
-  document.getElementById('deskName').innerText = desk.name;
-  document.getElementById('deskInfo').innerText = `Datum: ${date}`;
-
-  document.getElementById('hourlyOption').style.display =
-    desk.mode === 'HOURLY' ? 'block' : 'none';
-
-  document.getElementById('overlay').style.display = 'block';
-  document.getElementById('modal').style.display = 'block';
-
-  document.getElementById('btnFullDay').onclick = () => book('FULLDAY');
-  document.getElementById('btnHourly').onclick = () => book('HOURLY');
-}
-
-function closeModal() {
-  document.getElementById('overlay').style.display = 'none';
-  document.getElementById('modal').style.display = 'none';
-}
-
-// ==================== BUCHUNG ====================
-async function book(mode) {
-  const date = normalizeDate(document.getElementById('selectedDate').value);
-
-  let start = null, end = null;
-
-  if (mode === 'HOURLY') {
-    start = document.getElementById('startTime').value;
-    end = document.getElementById('endTime').value;
-    if (!start || !end || start >= end) return alert("Ungültige Zeit");
-  }
-
-  const resp = await fetch('/api/book', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      deskId: currentDesk.id,
-      date,
-      user: currentUser,
-      startTime: start,
-      endTime: end
-    })
-  });
-
-  const data = await resp.json();
-  if (!data.success) {
-    if (data.reason === "Zeitüberschneidung") alert("Zeitüberschneidung!");
-    else if (data.reason === "Ganztag blockiert") alert("Ganztagsbuchung blockiert den Tag!");
-    else alert("Fehler beim Buchen");
-    return;
-  }
-
-  closeModal();
-  loadFromServer();
-}
-
-// ==================== SERVER-DATEN LADEN ====================
+// ==================== LOAD FROM SERVER ====================
 async function loadFromServer() {
   const resp = await fetch('/api/desks');
   const data = await resp.json();
@@ -239,7 +260,7 @@ async function loadFromServer() {
   }
 }
 
-// ==================== UI ====================
+// ==================== DATE LIMIT ====================
 function setMinMaxDate() {
   const today = new Date().toISOString().split('T')[0];
   const max = new Date();
@@ -253,6 +274,7 @@ function setMinMaxDate() {
   input.addEventListener('change', renderDesks);
 }
 
+// ==================== RENDER DESKS ====================
 function renderDesks() {
   const fp = document.getElementById('floorplan');
   const img = document.getElementById('floorImg');
@@ -300,7 +322,7 @@ function renderDesks() {
   });
 }
 
-// ==================== TISCH PLATZIEREN ====================
+// ==================== PLACE NEW DESK ====================
 function enablePlacingMode() {
   if (!isAdmin) return alert("Nur Admins dürfen Tische platzieren.");
   placingMode = true;
@@ -386,7 +408,65 @@ function makeDraggableResizable(div, desk) {
   };
 }
 
-// ==================== KALENDER ====================
+// ==================== BOOKING MODAL ====================
+function openModal(desk, date) {
+  currentDesk = desk;
+
+  document.getElementById('deskName').innerText = desk.name;
+  document.getElementById('deskInfo').innerText = `Datum: ${date}`;
+
+  document.getElementById('hourlyOption').style.display =
+    desk.mode === 'HOURLY' ? 'block' : 'none';
+
+  document.getElementById('overlay').style.display = 'block';
+  document.getElementById('modal').style.display = 'block';
+
+  document.getElementById('btnFullDay').onclick = () => book('FULLDAY');
+  document.getElementById('btnHourly').onclick = () => book('HOURLY');
+}
+
+function closeModal() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('modal').style.display = 'none';
+}
+
+// ==================== BOOKING ====================
+async function book(mode) {
+  const date = normalizeDate(document.getElementById('selectedDate').value);
+
+  let start = null, end = null;
+
+  if (mode === 'HOURLY') {
+    start = document.getElementById('startTime').value;
+    end = document.getElementById('endTime').value;
+    if (!start || !end || start >= end) return alert("Ungültige Zeit");
+  }
+
+  const resp = await fetch('/api/book', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      deskId: currentDesk.id,
+      date,
+      user: currentUser,
+      startTime: start,
+      endTime: end
+    })
+  });
+
+  const data = await resp.json();
+  if (!data.success) {
+    if (data.reason === "Zeitüberschneidung") alert("Zeitüberschneidung!");
+    else if (data.reason === "Ganztag blockiert") alert("Ganztagsbuchung blockiert den Tag!");
+    else alert("Fehler beim Buchen");
+    return;
+  }
+
+  closeModal();
+  loadFromServer();
+}
+
+// ==================== CALENDAR ====================
 function showCalendar() {
   document.getElementById('calendarView').style.display = 'block';
   renderCalendar();
@@ -446,6 +526,7 @@ function renderCalendar() {
             : `${b.user} (ganztags)`
         ).join("\n");
 
+        td
         td.onclick = () => {
           downloadICS(desk.id, day);
         };

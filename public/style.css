@@ -1,3 +1,72 @@
+/* LOGIN PAGE */
+.login-body {
+    background: #f0f0f0;
+    font-family: Arial, sans-serif;
+}
+
+.login-container {
+    width: 350px;
+    margin: 80px auto;
+    padding: 25px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+.login-banner {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.login-title {
+    margin-bottom: 20px;
+    font-size: 26px;
+    font-weight: bold;
+}
+
+#loginForm input {
+    width: 90%;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+.login-btn {
+    width: 95%;
+    padding: 10px;
+    background: #0078d7;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+.login-btn:hover {
+    background: #005bb5;
+}
+
+.login-links {
+    margin-top: 15px;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    color: #0078d7;
+    cursor: pointer;
+    display: block;
+    margin: 5px auto;
+}
+
+.login-message {
+    margin-top: 10px;
+    color: red;
+}
+
+/* MAIN PAGE */
 body {
   font-family: Arial, sans-serif;
   margin: 20px;
@@ -8,9 +77,9 @@ body {
   position: fixed;
   top: 20px;
   right: 20px;
-  width: 120px;      /* Größe anpassen */
-  z-index: 2000;     /* über allem */
-  opacity: 0.95;     /* leicht elegant */
+  width: 240px;
+  z-index: 2000;
+  opacity: 0.95;
 }
 
 #adminLoginBtn, #adminLogoutBtn {
@@ -53,6 +122,7 @@ body {
   background: red;
 }
 
+/* Buchungsmodal (Overlay + Box) */
 #modal {
   display: none;
   position: fixed;
@@ -76,6 +146,7 @@ body {
   z-index: 98;
 }
 
+/* Admin-Bereich */
 .admin {
   background: #eee;
   padding: 15px;
@@ -109,6 +180,8 @@ body {
   background: #ccffcc;
   cursor: pointer;
 }
+
+/* Admin Panel Upload Container */
 #adminPanel {
   position: fixed;
   top: 20px;
@@ -149,4 +222,38 @@ body {
 
 #uploadContainer button:hover {
   background: #005fa3;
+}
+
+/* Allgemeine Modal-Optik (für Admin/User Modals) */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-box {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 350px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.4);
+}
+
+.modal-box h3 {
+  margin-top: 0;
+}
+
+.modal-box input {
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0;
+}
+
+.modal-box button {
+  margin-top: 10px;
 }

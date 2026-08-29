@@ -21,7 +21,7 @@ app.use(session({
 
 const db = new sqlite3.Database('./data.db');
 
-// Multer für Raumplan-Upload
+// ==================== MULTER UPLOAD ====================
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'public/uploads/');
@@ -30,19 +30,11 @@ const storage = multer.diskStorage({
     cb(null, 'floorplan.png');
   }
 });
+const upload = multer({ storage });
 
-const upload = multer({ storage: storage });
-
-app.post('/upload-floorplan', upload.single('file'), (req, res) => {
-  // Optional: Admin-Check
-  // if (!req.session || !req.session.isAdmin) {
-  //   return res.status(403).json({ success: false });
-  // }
-  res.json({ success: true });
-});
-
-// Tabellen erstellen
+// ==================== TABELLEN ====================
 db.serialize(() => {
+
   db.run(`CREATE TABLE IF NOT EXISTS desks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
@@ -68,24 +60,79 @@ db.serialize(() => {
     passwordHash TEXT
   )`);
 
-  // Standard-Admin anlegen, falls nicht vorhanden
-  db.get("SELECT * FROM admins WHERE username = 'admin'", (err, row) => {
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    passwordHash TEXT,
+    initialPasswordHash TEXT
+  )`);
+
+  // Standard-Admin
+  db.get("SELECT * FROM admins WHERE username='admin'", (err, row) => {
     if (!row) {
       const hash = bcrypt.hashSync("admin", 10);
-      db.run(
-        "INSERT INTO admins (username, passwordHash) VALUES (?, ?)",
-        ["admin", hash],
-        () => console.log("Standard-Admin angelegt: admin / admin")
-      );
+      db.run("INSERT INTO admins (username, passwordHash) VALUES (?,?)",
+        ["admin", hash]);
+      console.log("Standard-Admin angelegt: admin/admin");
     }
   });
 });
 
-// Admin-Login
+// ==================== USER LOGIN ====================
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  db.get("SELECT * FROM users WHERE username=?", [username], (err, row) => {
+    if (err || !row) return res.json({ success: false });
+
+    const ok = bcrypt.compareSync(password, row.passwordHash);
+    if (!ok) return res.json({ success: false });
+
+    req.session.loggedIn = true;
+    req.session.username = username;
+
+    const mustChange = bcrypt.compareSync(password, row.initialPasswordHash);
+
+    res.json({ success: true, mustChange });
+  });
+});
+
+// ==================== USER PASSWORD CHANGE ====================
+app.post('/change-password', (req, res) => {
+  const { username } = req.session;
+  const { newPassword } = req.body;
+
+  if (!username) return res.json({ success: false });
+
+  const newHash = bcrypt.hashSync(newPassword, 10);
+
+  db.run(
+    `UPDATE users SET passwordHash=?, initialPasswordHash=NULL WHERE username=?`,
+    [newHash, username],
+    function(err) {
+      if (err) return res.json({ success: false });
+      res.json({ success: true });
+    }
+  );
+});
+
+// ==================== SESSION CHECK ====================
+app.get('/session-check', (req, res) => {
+  res.json({ loggedIn: req.session.loggedIn === true });
+});
+
+// ==================== LOGOUT ====================
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect("/index.html");
+  });
+});
+
+// ==================== ADMIN LOGIN ====================
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
 
-  db.get("SELECT * FROM admins WHERE username = ?", [username], (err, row) => {
+  db.get("SELECT * FROM admins WHERE username=?", [username], (err, row) => {
     if (err || !row) return res.json({ success: false });
 
     const ok = bcrypt.compareSync(password, row.passwordHash);
@@ -93,45 +140,47 @@ app.post('/api/admin/login', (req, res) => {
 
     req.session.isAdmin = true;
     req.session.adminUser = username;
+
     res.json({ success: true });
   });
 });
 
-// Admin-Status
 app.get('/api/admin/status', (req, res) => {
-  res.json({ isAdmin: req.session?.isAdmin === true, user: req.session?.adminUser || null });
+  res.json({
+    isAdmin: req.session?.isAdmin === true,
+    user: req.session?.adminUser || null
+  });
 });
 
-// Admin-Logout
 app.post('/api/admin/logout', (req, res) => {
   req.session.destroy(() => {
     res.json({ success: true });
   });
 });
 
-// Admin-Passwort ändern
-app.post('/api/admin/change-password', (req, res) => {
-  const { username, oldPassword, newPassword } = req.body;
+// ==================== ADMIN: CREATE USER ====================
+app.post('/api/admin/create-user', (req, res) => {
+  const { username, initialPassword } = req.body;
 
-  db.get("SELECT * FROM admins WHERE username = ?", [username], (err, row) => {
-    if (err || !row) return res.json({ success: false, reason: "user" });
+  const hash = bcrypt.hashSync(initialPassword, 10);
 
-    const ok = bcrypt.compareSync(oldPassword, row.passwordHash);
-    if (!ok) return res.json({ success: false, reason: "old" });
-
-    const newHash = bcrypt.hashSync(newPassword, 10);
-    db.run(
-      "UPDATE admins SET passwordHash=? WHERE id=?",
-      [newHash, row.id],
-      (err2) => {
-        if (err2) return res.json({ success: false });
-        res.json({ success: true });
-      }
-    );
-  });
+  db.run(
+    `INSERT INTO users (username, passwordHash, initialPasswordHash)
+     VALUES (?, ?, ?)`,
+    [username, hash, hash],
+    function(err) {
+      if (err) return res.json({ success: false, reason: "exists" });
+      res.json({ success: true });
+    }
+  );
 });
 
-// Tische + Buchungen laden
+// ==================== FLOORPLAN UPLOAD ====================
+app.post('/upload-floorplan', upload.single('file'), (req, res) => {
+  res.json({ success: true });
+});
+
+// ==================== DESKS API ====================
 app.get('/api/desks', (req, res) => {
   db.all("SELECT * FROM desks", (err, desks) => {
     db.all("SELECT * FROM bookings", (err2, bookings) => {
@@ -140,7 +189,6 @@ app.get('/api/desks', (req, res) => {
   });
 });
 
-// Tisch anlegen
 app.post('/api/desks', (req, res) => {
   const { name, x, y, w, h, mode } = req.body;
   db.run(
@@ -152,7 +200,6 @@ app.post('/api/desks', (req, res) => {
   );
 });
 
-// Tisch aktualisieren
 app.put('/api/desks/:id', (req, res) => {
   const { x, y, w, h } = req.body;
   db.run(
@@ -164,7 +211,6 @@ app.put('/api/desks/:id', (req, res) => {
   );
 });
 
-// Tisch löschen + Buchungen löschen
 app.delete('/api/desks/:id', (req, res) => {
   db.run(`DELETE FROM desks WHERE id=?`, [req.params.id], function(err) {
     if (err) return res.json({ success: false });
@@ -175,7 +221,7 @@ app.delete('/api/desks/:id', (req, res) => {
   });
 });
 
-// Buchen mit Zeitüberschneidungsprüfung
+// ==================== BOOKING ====================
 app.post('/api/book', (req, res) => {
   const { deskId, date, user, startTime, endTime } = req.body;
 
@@ -212,7 +258,7 @@ app.post('/api/book', (req, res) => {
   );
 });
 
-// ICS EXPORT – einzelner Tag / einzelner Tisch
+// ==================== ICS EXPORT ====================
 app.get('/api/ical', (req, res) => {
   let { deskId, date } = req.query;
 
@@ -253,7 +299,7 @@ app.get('/api/ical', (req, res) => {
   );
 });
 
-// ICS EXPORT – ganze Woche (eine Datei)
+// ==================== ICS WEEK ====================
 app.get('/api/ical-week', (req, res) => {
   let { start } = req.query;
   const startDate = start.trim().slice(0, 10);
@@ -300,7 +346,7 @@ app.get('/api/ical-week', (req, res) => {
   );
 });
 
-// Frontend
+// ==================== FRONTEND ====================
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
