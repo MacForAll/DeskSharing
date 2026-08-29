@@ -20,6 +20,8 @@ app.use(session({
 }));
 
 const db = new sqlite3.Database('./data.db');
+ensureDefaultAdminUser();
+
 
 // ==================== MULTER UPLOAD ====================
 const storage = multer.diskStorage({
@@ -54,12 +56,6 @@ db.serialize(() => {
     endTime TEXT
   )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS admins (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    passwordHash TEXT
-  )`);
-
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
@@ -67,19 +63,22 @@ db.serialize(() => {
     initialPasswordHash TEXT
   )`);
 
-  // Standard-Admin
-  db.get("SELECT * FROM admins WHERE username='admin'", (err, row) => {
-    if (!row) {
-      const hash = bcrypt.hashSync("admin", 10);
-      db.run("INSERT INTO admins (username, passwordHash) VALUES (?,?)",
-        ["admin", hash]);
-      console.log("Standard-Admin angelegt: admin/admin");
-    }
-  });
-});
+// ==================== DEFAULT ADMIN USER ====================
+async function ensureDefaultAdminUser() {
+  const adminUser = await db.get('SELECT * FROM users WHERE username = ?', ['admin']);
+
+  if (!adminUser) {
+    console.log("Erstelle Standard-Admin: admin/admin");
+
+    await db.run(
+      'INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)',
+      ['admin', 'admin', 0]   // 0 = noch kein echter Admin
+    );
+  }
+}
 
 // ==================== USER LOGIN ====================
-app.post('/login', (req, res) => {
+app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
   db.get("SELECT * FROM users WHERE username=?", [username], (err, row) => {
@@ -117,8 +116,31 @@ app.post('/change-password', (req, res) => {
 });
 
 // ==================== SESSION CHECK ====================
-app.get('/session-check', (req, res) => {
-  res.json({ loggedIn: req.session.loggedIn === true });
+app.get('/session-check', async (req, res) => {
+  if (!req.session.loggedIn) {
+    return res.json({
+      loggedIn: false
+    });
+  }
+
+  const user = await db.get(
+    'SELECT username, passwordHash, initialPasswordHash FROM users WHERE username = ?',
+    [req.session.username]
+  );
+
+  if (!user) {
+    return res.json({ loggedIn: false });
+  }
+
+  const mustChangePassword = user.initialPasswordHash !== null &&
+                             user.passwordHash === user.initialPasswordHash;
+
+  res.json({
+    loggedIn: true,
+    username: user.username,
+    mustChangePassword,
+    isAdmin: user.username === "admin" && !mustChangePassword
+  });
 });
 
 // ==================== LOGOUT ====================
@@ -129,29 +151,61 @@ app.get('/logout', (req, res) => {
 });
 
 // ==================== ADMIN LOGIN ====================
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
   const { username, password } = req.body;
 
-  db.get("SELECT * FROM admins WHERE username=?", [username], (err, row) => {
-    if (err || !row) return res.json({ success: false });
+  const user = await db.get(
+    'SELECT * FROM users WHERE username = ?',
+    [username]
+  );
 
-    const ok = bcrypt.compareSync(password, row.passwordHash);
-    if (!ok) return res.json({ success: false });
+  if (!user) {
+    return res.json({ success: false });
+  }
 
-    req.session.isAdmin = true;
-    req.session.adminUser = username;
+  const valid = bcrypt.compareSync(password, user.passwordHash);
 
-    res.json({ success: true });
-  });
-});
+  if (!valid) {
+    return res.json({ success: false });
+  }
 
-app.get('/api/admin/status', (req, res) => {
+  // Admin erkannt
+  req.session.loggedIn = true;
+  req.session.username = username;
+
+  // Admin muss Passwort ändern, wenn initialPasswordHash == passwordHash
+  const mustChangePassword = user.passwordHash === user.initialPasswordHash;
+
+  req.session.mustChangePassword = mustChangePassword;
+
   res.json({
-    isAdmin: req.session?.isAdmin === true,
-    user: req.session?.adminUser || null
+    success: true,
+    mustChangePassword
   });
 });
 
+// ==================== ADMIN PASSWORD CHANGE ====================
+app.post('/api/admin/change-password', async (req, res) => {
+  const { username } = req.session;
+  const { newPassword } = req.body;
+
+  if (!username) {
+    return res.json({ success: false, error: "Not logged in" });
+  }
+
+  const hash = bcrypt.hashSync(newPassword, 10);
+
+  await db.run(
+    'UPDATE users SET passwordHash = ?, initialPasswordHash = NULL WHERE username = ?',
+    [hash, username]
+  );
+
+  req.session.mustChangePassword = false;
+
+  res.json({ success: true });
+});
+
+// ==================== ADMIN LOGOUT ====================
 app.post('/api/admin/logout', (req, res) => {
   req.session.destroy(() => {
     res.json({ success: true });

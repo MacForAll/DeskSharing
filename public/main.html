@@ -48,13 +48,27 @@
 
   <script>
     // Wenn keine Session → zurück zum Login
-    fetch('/session-check')
-      .then(res => res.json())
-      .then(data => {
-        if (!data.loggedIn) {
-          window.location.href = "index.html";
-        }
-      });
+  fetch('/session-check')
+  .then(res => res.json())
+  .then(data => {
+
+    // Nicht eingeloggt → zurück zum Login
+    if (!data.loggedIn) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    // Admin muss Passwort ändern
+    if (data.mustChangePassword) {
+      document.getElementById("passwordChangeModal").style.display = "flex";
+    }
+
+    // Admin-Bereich freischalten
+    if (data.isAdmin) {
+      document.getElementById("adminPanel").style.display = "block";
+    }
+  });
+
   </script>
 
 <h1>Arbeitsplatz-Buchung (max. 2 Wochen im Voraus)</h1>
@@ -91,18 +105,32 @@
 </div>
 
 <!-- ADMIN LOGIN MODAL -->
-<div id="loginModal" class="modal-overlay">
+<div id="adminModal" class="modal-overlay">
   <div class="modal-box">
     <h3>Admin Login</h3>
 
+    <div id="adminError" style="color:#c00; margin-bottom:10px; display:none;"></div>
+
     <label>Benutzername:</label>
-    <input type="text" id="loginUser">
+    <input type="text" id="adminUser">
 
     <label>Passwort:</label>
-    <input type="password" id="loginPass">
+    <input type="password" id="adminPass">
 
-    <button onclick="confirmAdminLogin()">Login</button>
-    <button onclick="closeLoginModal()">Abbrechen</button>
+    <button id="adminConfirmBtn">Login</button>
+    <button id="adminCancelBtn">Abbrechen</button>
+  </div>
+</div>
+
+<!-- ADMIN PASSWORT ÄNDERN MODAL -->
+<div id="passwordChangeModal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Passwort ändern</h3>
+
+    <p>Bitte vergeben Sie ein neues Passwort, um den Admin-Account zu aktivieren.</p>
+
+    <input type="password" id="newAdminPassword" placeholder="Neues Passwort">
+    <button id="changePasswordBtn">Speichern</button>
   </div>
 </div>
 

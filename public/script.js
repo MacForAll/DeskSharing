@@ -795,7 +795,6 @@ if (password.length < 3) {
   return;
 }
 
-
     fetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -816,3 +815,44 @@ if (password.length < 3) {
     });
   };
 }
+
+// ==================== SESSION CHECK ====================
+fetch('/session-check')
+  .then(res => res.json())
+  .then(data => {
+    if (!data.loggedIn) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    if (data.mustChangePassword) {
+      document.getElementById("passwordChangeModal").style.display = "flex";
+    }
+
+    if (data.username === "admin") {
+      document.getElementById("adminPanel").style.display = "block";
+    }
+  });
+
+// ==================== PASSWORD CHANGE ====================
+document.getElementById("changePasswordBtn").onclick = () => {
+  const newPass = document.getElementById("newAdminPassword").value;
+
+  if (newPass.length < 4) {
+    alert("Passwort muss mindestens 4 Zeichen haben.");
+    return;
+  }
+
+  fetch('/api/admin/change-password', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ newPassword: newPass })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert("Passwort erfolgreich geändert!");
+      document.getElementById("passwordChangeModal").style.display = "none";
+    }
+  });
+};
