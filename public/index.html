@@ -179,10 +179,12 @@ h1 {
 <div id="loginBox">
   <h3>User Login</h3>
 
-  <input type="text" id="userName" placeholder="Benutzername">
-  <input type="password" id="userPass" placeholder="Passwort">
-
-  <button id="userLoginBtn">Login</button>
+  <form id="loginForm">
+    <input type="text" id="username" placeholder="Benutzername" required>
+    <input type="password" id="password" placeholder="Passwort" required>
+    <button type="submit" id="userLoginBtn">Login</button>
+    <div id="loginMessage" style="color: #c00; margin-top: 10px; display: none;"></div>
+  </form>
 
   <hr>
 
@@ -206,6 +208,26 @@ h1 {
 
     <button id="adminConfirmBtn">Login</button>
     <button id="adminCancelBtn">Abbrechen</button>
+  </div>
+</div>
+
+<!-- USER PASSWORD CHANGE MODAL (forced on first login) -->
+<div id="userPwModal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Passwort ändern</h3>
+
+    <p>Bitte ändern Sie Ihr Passwort beim ersten Login.</p>
+
+    <label>Altes Passwort:</label>
+    <input type="password" id="userNewPass1" placeholder="Altes Passwort">
+
+    <label>Neues Passwort:</label>
+    <input type="password" id="userNewPass2" placeholder="Neues Passwort">
+
+    <label>Neues Passwort wiederholen:</label>
+    <input type="password" id="userNewPass3" placeholder="Neues Passwort wiederholen">
+
+    <button onclick="confirmUserPasswordChange()">Speichern</button>
   </div>
 </div>
 

@@ -34,24 +34,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ==================== USER PASSWORD CHANGE ====================
 async function confirmUserPasswordChange() {
-    const p1 = document.getElementById("userNewPass1").value;
-    const p2 = document.getElementById("userNewPass2").value;
+    const oldPass = document.getElementById("userNewPass1").value;
+    const newPass1 = document.getElementById("userNewPass2").value;
+    const newPass2 = document.getElementById("userNewPass3").value;
 
-    if (!p1 || !p2 || p1 !== p2) {
-        alert("Passwörter stimmen nicht überein.");
+    if (!oldPass || !newPass1 || !newPass2) {
+        alert("Bitte alle Felder ausfüllen.");
+        return;
+    }
+
+    if (newPass1 !== newPass2) {
+        alert("Neue Passwörter stimmen nicht überein.");
         return;
     }
 
     const res = await fetch('/change-password', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword: p1 })
+        body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass1 })
     });
 
     const data = await res.json();
 
     if (data.success) {
         window.location.href = "main.html";
+    } else if (data.reason === 'old') {
+        alert("Altes Passwort falsch.");
     } else {
         alert("Fehler beim Speichern.");
     }

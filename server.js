@@ -5,6 +5,7 @@ const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -84,9 +85,24 @@ function ensureDefaultAdminUser() {
 // Funktion ausführen
 ensureDefaultAdminUser();
 
+// ==================== RATE LIMITING ====================
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP
+  message: 'Zu viele Login-Versuche. Bitte später erneut versuchen.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ==================== USER LOGIN ====================
-app.post('/api/login', (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
 
   const row = db.prepare(
@@ -108,11 +124,46 @@ app.post('/api/login', (req, res) => {
 });
 
 // ==================== USER PASSWORD CHANGE ====================
-app.post('/change-password', (req, res) => {
+app.post('/change-password', generalLimiter, (req, res) => {
+  const { username } = req.session;
+  const { oldPassword, newPassword } = req.body;
+
+  if (!username) return res.json({ success: false });
+
+  const user = db.prepare(
+    'SELECT passwordHash FROM users WHERE username = ?'
+  ).get(username);
+
+  if (!user) return res.json({ success: false, reason: 'user' });
+
+  const validOld = bcrypt.compareSync(oldPassword, user.passwordHash);
+  if (!validOld) return res.json({ success: false, reason: 'old' });
+
+  const newHash = bcrypt.hashSync(newPassword, 10);
+
+  db.prepare(`
+    UPDATE users SET passwordHash=?, initialPasswordHash=NULL WHERE username=?
+  `).run(newHash, username);
+
+  res.json({ success: true });
+});
+
+// ==================== FORCED PASSWORD CHANGE (first-time) ====================
+app.post('/force-change-password', generalLimiter, (req, res) => {
   const { username } = req.session;
   const { newPassword } = req.body;
 
   if (!username) return res.json({ success: false });
+
+  const user = db.prepare(
+    'SELECT passwordHash, initialPasswordHash FROM users WHERE username = ?'
+  ).get(username);
+
+  if (!user) return res.json({ success: false });
+
+  if (user.initialPasswordHash === null || user.passwordHash !== user.initialPasswordHash) {
+    return res.json({ success: false, reason: 'not_initial' });
+  }
 
   const newHash = bcrypt.hashSync(newPassword, 10);
 
@@ -156,7 +207,7 @@ app.get('/logout', (req, res) => {
 });
 
 // ==================== ADMIN LOGIN ====================
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
 
   const user = db.prepare(
@@ -181,12 +232,24 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // ==================== ADMIN PASSWORD CHANGE ====================
-app.post('/api/admin/change-password', (req, res) => {
-  const { username } = req.session;
-  const { newPassword } = req.body;
+app.post('/api/admin/change-password', generalLimiter, (req, res) => {
+  const { username, oldPassword, newPassword } = req.body;
 
   if (!username) {
-    return res.json({ success: false, error: "Not logged in" });
+    return res.json({ success: false, reason: 'user' });
+  }
+
+  const user = db.prepare(
+    'SELECT passwordHash FROM users WHERE username = ?'
+  ).get(username);
+
+  if (!user) {
+    return res.json({ success: false, reason: 'user' });
+  }
+
+  const validOld = bcrypt.compareSync(oldPassword, user.passwordHash);
+  if (!validOld) {
+    return res.json({ success: false, reason: 'old' });
   }
 
   const hash = bcrypt.hashSync(newPassword, 10);
@@ -194,8 +257,6 @@ app.post('/api/admin/change-password', (req, res) => {
   db.prepare(`
     UPDATE users SET passwordHash = ?, initialPasswordHash = NULL WHERE username = ?
   `).run(hash, username);
-
-  req.session.mustChangePassword = false;
 
   res.json({ success: true });
 });
@@ -208,7 +269,7 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 // ==================== ADMIN: CREATE USER ====================
-app.post('/api/admin/create-user', (req, res) => {
+app.post('/api/admin/create-user', generalLimiter, (req, res) => {
   const { username, initialPassword } = req.body;
 
   const hash = bcrypt.hashSync(initialPassword, 10);
@@ -226,7 +287,7 @@ app.post('/api/admin/create-user', (req, res) => {
 });
 
 // ==================== FLOORPLAN UPLOAD ====================
-app.post('/upload-floorplan', upload.single('file'), (req, res) => {
+app.post('/upload-floorplan', generalLimiter, upload.single('file'), (req, res) => {
   res.json({ success: true });
 });
 
@@ -271,7 +332,7 @@ app.delete('/api/desks/:id', (req, res) => {
 });
 
 // ==================== BOOKING ====================
-app.post('/api/book', (req, res) => {
+app.post('/api/book', generalLimiter, (req, res) => {
   const { deskId, date, user, startTime, endTime } = req.body;
 
   const normalizedDate = date.trim().slice(0, 10);

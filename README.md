@@ -20,7 +20,7 @@ Dieses Dokument beschreibt sowohl die lokale Entwicklung als auch die vollständ
 # 🧩 1. Lokale Installation (Entwicklung)
 
 ## Voraussetzungen
-- Node.js ≥ 18
+- Node.js 22.x (oder ≥ 18)
 - npm
 
 ## Installation
@@ -61,14 +61,14 @@ nvm --version
 ```
 
 ## 🔧 4. Node.js installieren
-DeskSharing benötigt Node 18:
-```bash
-nvm install 18
-````
-
-Optional: weitere Versionen für andere Projekte:
+DeskSharing benötigt Node.js 22.x (oder ≥ 18):
 ```bash
 nvm install 22
+```
+
+Oder für ältere Systeme:
+```bash
+nvm install 18
 ```
 
 ## 📁 5. Projekt installieren
@@ -77,13 +77,13 @@ mkdir -p /home/<username>/Public
 cd /home/<username>/Public
 git clone https://github.com/MacForAll/DeskSharing
 cd DeskSharing
-nvm use 18
+nvm use 22
 npm install
 ```
 
 ## 🚀 6. Anwendung starten (Test)
 ```bash
-nvm use 18
+nvm use 22
 npm start
 ```
 
@@ -97,7 +97,7 @@ PM2 sorgt dafür, dass DeskSharing automatisch startet und überwacht wird.
 
 ### PM2 installieren
 ```bash
-nvm use 18
+nvm use 22
 npm install -g pm2
 ```
 
@@ -162,10 +162,12 @@ cp /home/<username>/Public/DeskSharing/data.db /home/<username>/Public/DeskShari
 ```
 
 ## 🔒 11. Sicherheitshinweise
-• Standard‑Passwort im Admin‑Bereich ändern
+• **Standard‑Passwort im Admin‑Bereich ändern** (admin/admin) – beim ersten Login erzwungen
+• **Passwortänderungen sind geschützt** – altes Passwort muss validiert werden
 • HTTPS verwenden, wenn öffentlich erreichbar
 • Portfreigabe nur für Nginx (80/443), nicht für Node direkt
 • Regelmäßige Backups der SQLite‑Datenbank
+• Sitzungen sind In-Memory; nach Neustart neu anmelden erforderlich
 
 ## 🧪 12. PM2 Status prüfen
 ```bash
@@ -205,8 +207,9 @@ DeskSharing läuft nun stabil, automatisch und sicher auf deinem Raspberry Pi.
 
 ### 🔐 Admin‑Bereich
 - Admin‑Login mit Passwortfeld (••••)
-- Passwort ändern (Benutzername, altes Passwort, neues Passwort + Wiederholung)
-- Passwort wird sicher im Browser gespeichert (localStorage)
+- Passwort ändern (mit Validierung des alten Passworts)
+- Benutzer anlegen und verwalten
+- Forced password change bei erstem Login für mehr Sicherheit
 
 ### 📤 Export
 - Export **eines Tages** als ICS pro Tisch
@@ -228,7 +231,13 @@ Standard‑Zugangsdaten:
 - **Passwort:** `admin`
 
 Werden beim Server-Start gesetzt.
-Beides kann im Admin‑Bereich geändert werden.
+
+**Beim ersten Login wird eine Passwortänderung erzwungen:**
+- Das alte Standard-Passwort muss eingegeben werden
+- Ein neues, sicheres Passwort muss vergeben werden
+- Danach kann der Admin-Bereich verwendet werden
+
+Passwortänderungen sind geschützt – nur mit Validierung des alten Passworts möglich.
 
 ---
 

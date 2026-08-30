@@ -131,17 +131,28 @@
 
       // Admin-Passwort ändern (erzwungenes Modal)
       changePasswordBtn.onclick = () => {
-        const newPass = newAdminPassword.value.trim();
+        const newPass1 = newAdminPassword.value.trim();
+        const newPass2 = document.getElementById("newAdminPassword2").value.trim();
 
-        if (newPass.length < 4) {
+        if (!newPass1 || !newPass2) {
+          alert("Bitte beide Passwörter eingeben.");
+          return;
+        }
+
+        if (newPass1 !== newPass2) {
+          alert("Passwörter stimmen nicht überein.");
+          return;
+        }
+
+        if (newPass1.length < 4) {
           alert("Passwort muss mindestens 4 Zeichen haben.");
           return;
         }
 
-        fetch('/api/admin/change-password', {
+        fetch('/force-change-password', {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newPassword: newPass })
+          body: JSON.stringify({ newPassword: newPass1 })
         })
         .then(res => res.json())
         .then(data => {
@@ -149,6 +160,8 @@
             alert("Passwort erfolgreich geändert!");
             pwChangeModal.style.display = "none";
             location.reload();
+          } else {
+            alert("Fehler beim Speichern.");
           }
         });
       };
@@ -224,6 +237,7 @@
       <p>Bitte vergeben Sie ein neues Passwort, um den Admin-Account zu aktivieren.</p>
 
       <input type="password" id="newAdminPassword" placeholder="Neues Passwort">
+      <input type="password" id="newAdminPassword2" placeholder="Passwort wiederholen">
       <button id="changePasswordBtn">Speichern</button>
     </div>
   </div>
