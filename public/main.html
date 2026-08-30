@@ -1,226 +1,320 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<title>DeskSharing</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>DeskSharing</title>
+  <link rel="stylesheet" href="style.css">
 
-<style>
-  /* Allgemeine Modal-Optik */
-  .modal-overlay {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
+  <style>
+    /* Allgemeine Modal-Optik */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
 
-  .modal-box {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    width: 350px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.4);
-  }
+    .modal-box {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 350px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
 
-  .modal-box h3 {
-    margin-top: 0;
-  }
+    .modal-box h3 {
+      margin-top: 0;
+    }
 
-  .modal-box input {
-    width: 100%;
-    padding: 8px;
-    margin: 6px 0;
-  }
+    .modal-box input {
+      width: 100%;
+      padding: 8px;
+      margin: 6px 0;
+    }
 
-  .modal-box button {
-    margin-top: 10px;
-  }
-</style>
+    .modal-box button {
+      margin-top: 10px;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const adminArea        = document.getElementById('adminArea');
+      const adminLoginBtn    = document.getElementById('adminLoginBtn');
+      const adminLogoutBtn   = document.getElementById('adminLogoutBtn');
+      const adminModal       = document.getElementById('adminModal');
+      const adminUser        = document.getElementById('adminUser');
+      const adminPass        = document.getElementById('adminPass');
+      const adminConfirmBtn  = document.getElementById('adminConfirmBtn');
+      const adminCancelBtn   = document.getElementById('adminCancelBtn');
+      const adminError       = document.getElementById('adminError');
+      const pwChangeModal    = document.getElementById('passwordChangeModal');
+      const newAdminPassword = document.getElementById('newAdminPassword');
+      const changePasswordBtn= document.getElementById('changePasswordBtn');
+
+      // Session-Check
+      fetch('/session-check')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.loggedIn) {
+            window.location.href = "index.html";
+            return;
+          }
+
+          // Admin muss Passwort ändern
+          if (data.mustChangePassword) {
+            pwChangeModal.style.display = "flex";
+          }
+
+          // Admin-Bereich freischalten
+          if (data.isAdmin) {
+            adminArea.style.display = "block";
+            adminLoginBtn.style.display = "none";
+            adminLogoutBtn.style.display = "inline-block";
+          } else {
+            adminArea.style.display = "none";
+            adminLoginBtn.style.display = "inline-block";
+            adminLogoutBtn.style.display = "inline-block";
+          }
+        });
+
+      // Admin-Login öffnen
+      adminLoginBtn.onclick = () => {
+        adminError.style.display = "none";
+        adminUser.value = "";
+        adminPass.value = "";
+        adminModal.style.display = "flex";
+      };
+
+      // Admin-Login abbrechen
+      adminCancelBtn.onclick = () => {
+        adminModal.style.display = "none";
+      };
+
+      // Admin-Login bestätigen
+      adminConfirmBtn.onclick = () => {
+        const username = adminUser.value.trim();
+        const password = adminPass.value.trim();
+
+        if (!username || !password) {
+          adminError.style.display = "block";
+          adminError.innerText = "Bitte Benutzername und Passwort eingeben.";
+          return;
+        }
+
+        fetch('/api/admin/login', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) {
+            adminError.style.display = "block";
+            adminError.innerText = "Login fehlgeschlagen.";
+            return;
+          }
+
+          adminModal.style.display = "none";
+
+          if (data.mustChangePassword) {
+            pwChangeModal.style.display = "flex";
+          } else {
+            location.reload();
+          }
+        });
+      };
+
+      // Admin-Passwort ändern (erzwungenes Modal)
+      changePasswordBtn.onclick = () => {
+        const newPass = newAdminPassword.value.trim();
+
+        if (newPass.length < 4) {
+          alert("Passwort muss mindestens 4 Zeichen haben.");
+          return;
+        }
+
+        fetch('/api/admin/change-password', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newPassword: newPass })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert("Passwort erfolgreich geändert!");
+            pwChangeModal.style.display = "none";
+            location.reload();
+          }
+        });
+      };
+
+      // Logout (für alle Benutzer)
+      adminLogoutBtn.onclick = () => {
+        window.location.href = "/logout";
+      };
+    });
+  </script>
 
 </head>
 <body>
 
   <img id="logo" src="assets/logo.png" alt="Desksharing Logo">
 
-  <script>
-    // Wenn keine Session → zurück zum Login
-  fetch('/session-check')
-  .then(res => res.json())
-  .then(data => {
+  <h1>Arbeitsplatz-Buchung (max. 2 Wochen im Voraus)</h1>
 
-    // Nicht eingeloggt → zurück zum Login
-    if (!data.loggedIn) {
-      window.location.href = "index.html";
-      return;
-    }
+  <button id="adminLoginBtn">Admin Login</button>
+  <button id="adminLogoutBtn" style="display:none;">Logout</button>
 
-    // Admin muss Passwort ändern
-    if (data.mustChangePassword) {
-      document.getElementById("passwordChangeModal").style.display = "flex";
-    }
+  <label>Datum wählen:</label>
+  <input type="date" id="selectedDate">
 
-    // Admin-Bereich freischalten
-    if (data.isAdmin) {
-      document.getElementById("adminPanel").style.display = "block";
-    }
-  });
+  <button id="exportDayBtn">Export Tag (.ics)</button>
 
-  </script>
-
-<h1>Arbeitsplatz-Buchung (max. 2 Wochen im Voraus)</h1>
-
-<button id="adminLoginBtn">Admin Login</button>
-<button id="adminLogoutBtn" style="display:none;">Logout</button>
-
-<label>Datum wählen:</label>
-<input type="date" id="selectedDate">
-
-<button id="exportDayBtn">Export Tag (.ics)</button>
-
-<div id="floorplan">
-  <img id="floorImg" src="/uploads/floorplan.png" alt="Raumplan">
-</div>
-
-<!-- Buchungsmodal -->
-<div id="overlay"></div>
-<div id="modal">
-  <h3>Tisch <span id="deskName"></span> buchen</h3>
-  <p id="deskInfo"></p>
-
-  <div id="fullDayOption">
-    <button id="btnFullDay">Ganztägig buchen</button>
+  <div id="floorplan">
+    <img id="floorImg" src="/uploads/floorplan.png" alt="Raumplan">
   </div>
 
-  <div id="hourlyOption">
-    Von <input type="time" id="startTime" value="09:00">
-    Bis <input type="time" id="endTime" value="17:00">
-    <button id="btnHourly">Stundenweise buchen</button>
+  <!-- Buchungsmodal -->
+  <div id="overlay"></div>
+  <div id="modal">
+    <h3>Tisch <span id="deskName"></span> buchen</h3>
+    <p id="deskInfo"></p>
+
+    <div id="fullDayOption">
+      <button id="btnFullDay">Ganztägig buchen</button>
+    </div>
+
+    <div id="hourlyOption">
+      Von <input type="time" id="startTime" value="09:00">
+      Bis <input type="time" id="endTime" value="17:00">
+      <button id="btnHourly">Stundenweise buchen</button>
+    </div>
+
+    <button onclick="closeModal()">Abbrechen</button>
   </div>
 
-  <button onclick="closeModal()">Abbrechen</button>
-</div>
+  <!-- ADMIN LOGIN MODAL -->
+  <div id="adminModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Admin Login</h3>
 
-<!-- ADMIN LOGIN MODAL -->
-<div id="adminModal" class="modal-overlay">
-  <div class="modal-box">
-    <h3>Admin Login</h3>
+      <div id="adminError" style="color:#c00; margin-bottom:10px; display:none;"></div>
 
-    <div id="adminError" style="color:#c00; margin-bottom:10px; display:none;"></div>
+      <label>Benutzername:</label>
+      <input type="text" id="adminUser">
 
-    <label>Benutzername:</label>
-    <input type="text" id="adminUser">
+      <label>Passwort:</label>
+      <input type="password" id="adminPass">
 
-    <label>Passwort:</label>
-    <input type="password" id="adminPass">
-
-    <button id="adminConfirmBtn">Login</button>
-    <button id="adminCancelBtn">Abbrechen</button>
+      <button id="adminConfirmBtn">Login</button>
+      <button id="adminCancelBtn">Abbrechen</button>
+    </div>
   </div>
-</div>
 
-<!-- ADMIN PASSWORT ÄNDERN MODAL -->
-<div id="passwordChangeModal" class="modal-overlay">
-  <div class="modal-box">
+  <!-- ADMIN PASSWORT ÄNDERN MODAL (erzwungen für Admin) -->
+  <div id="passwordChangeModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Passwort ändern</h3>
+
+      <p>Bitte vergeben Sie ein neues Passwort, um den Admin-Account zu aktivieren.</p>
+
+      <input type="password" id="newAdminPassword" placeholder="Neues Passwort">
+      <button id="changePasswordBtn">Speichern</button>
+    </div>
+  </div>
+
+  <!-- USER-PASSWORT ÄNDERN MODAL -->
+  <div id="pwModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Passwort ändern</h3>
+
+      <label>Benutzername:</label>
+      <input type="text" id="pwUser">
+
+      <label>Altes Passwort:</label>
+      <input type="password" id="pwOld">
+
+      <label>Neues Passwort:</label>
+      <input type="password" id="pwNew1">
+
+      <label>Neues Passwort wiederholen:</label>
+      <input type="password" id="pwNew2">
+
+      <button onclick="confirmPasswordChange()">Speichern</button>
+      <button onclick="closePwModal()">Abbrechen</button>
+    </div>
+  </div>
+
+  <!-- ADMIN-BEREICH -->
+  <div class="admin" id="adminArea" style="display:none;">
+    <h2>Admin – Einstellungen</h2>
+
+    <!-- Benutzerverwaltung -->
+    <h3>Benutzer anlegen</h3>
+    Benutzername: <input id="newUserName">
+    Initialpasswort: <input id="newUserPass">
+    <button onclick="createUser()">Benutzer anlegen</button>
+
+    <hr>
+
     <h3>Passwort ändern</h3>
+    <button onclick="openPwModal()">Passwort ändern</button>
 
-    <p>Bitte vergeben Sie ein neues Passwort, um den Admin-Account zu aktivieren.</p>
+    <hr>
 
-    <input type="password" id="newAdminPassword" placeholder="Neues Passwort">
-    <button id="changePasswordBtn">Speichern</button>
-  </div>
-</div>
+    <h3>Grundriss ändern</h3>
+    <div id="uploadContainer">
+      <input type="file" id="floorplanInput" accept="image/*">
+      <button onclick="uploadFloorplan()">Raumplan hochladen</button>
+    </div>
 
-<!-- ADMIN PASSWORT ÄNDERN MODAL -->
-<div id="pwModal" class="modal-overlay">
-  <div class="modal-box">
-    <h3>Passwort ändern</h3>
+    <hr>
 
-    <label>Benutzername:</label>
-    <input type="text" id="pwUser">
+    <h3>Neuen Tisch platzieren</h3>
+    Name: <input id="newDeskName" value="Neuer Tisch">
+    Modus:
+    <select id="newDeskMode">
+      <option value="FULLDAY">Ganztägig</option>
+      <option value="HOURLY">Stundenweise</option>
+    </select>
+    <button onclick="enablePlacingMode()">Platzieren aktivieren</button>
 
-    <label>Altes Passwort:</label>
-    <input type="password" id="pwOld">
-
-    <label>Neues Passwort:</label>
-    <input type="password" id="pwNew1">
-
-    <label>Neues Passwort wiederholen:</label>
-    <input type="password" id="pwNew2">
-
-    <button onclick="confirmPasswordChange()">Speichern</button>
-    <button onclick="closePwModal()">Abbrechen</button>
-  </div>
-</div>
-
-<!-- ADMIN-BEREICH -->
-<div class="admin" id="adminArea" style="display:none;">
-  <h2>Admin – Einstellungen</h2>
-
-  <!-- Benutzerverwaltung -->
-  <h3>Benutzer anlegen</h3>
-  Benutzername: <input id="newUserName">
-  Initialpasswort: <input id="newUserPass">
-  <button onclick="createUser()">Benutzer anlegen</button>
-
-  <hr>
-
-  <h3>Passwort ändern</h3>
-  <button onclick="openPwModal()">Passwort ändern</button>
-
-  <hr>
-
-  <h3>Grundriss ändern</h3>
-  <div id="uploadContainer">
-    <input type="file" id="floorplanInput" accept="image/*">
-    <button onclick="uploadFloorplan()">Raumplan hochladen</button>
+    <p>ALT + Drag = verschieben, SHIFT + Drag = Größe ändern, Rechtsklick = löschen</p>
   </div>
 
   <hr>
 
-  <h3>Neuen Tisch platzieren</h3>
-  Name: <input id="newDeskName" value="Neuer Tisch">
-  Modus:
-  <select id="newDeskMode">
-    <option value="FULLDAY">Ganztägig</option>
-    <option value="HOURLY">Stundenweise</option>
-  </select>
-  <button onclick="enablePlacingMode()">Platzieren aktivieren</button>
+  <h2>Kalender – Arbeitswoche</h2>
+  <button onclick="showCalendar()">Kalender anzeigen</button>
+  <button id="exportWeekBtn">Export Woche (eine Datei)</button>
 
-  <p>ALT + Drag = verschieben, SHIFT + Drag = Größe ändern, Rechtsklick = löschen</p>
-</div>
+  <div id="calendarView" style="display:none;">
+    <h3>Arbeitswoche</h3>
+    <button onclick="prevWeek()">← Vorherige Woche</button>
+    <button onclick="nextWeek()">Nächste Woche →</button>
 
-<hr>
+    <table id="calendarTable">
+      <thead>
+        <tr id="calendarHeaderRow">
+          <th>Tisch</th>
+          <th id="calDay1"></th>
+          <th id="calDay2"></th>
+          <th id="calDay3"></th>
+          <th id="calDay4"></th>
+          <th id="calDay5"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-<h2>Kalender – Arbeitswoche</h2>
-<button onclick="showCalendar()">Kalender anzeigen</button>
-<button id="exportWeekBtn">Export Woche (eine Datei)</button>
+  <div id="app"></div>
 
-<div id="calendarView" style="display:none;">
-  <h3>Arbeitswoche</h3>
-  <button onclick="prevWeek()">← Vorherige Woche</button>
-  <button onclick="nextWeek()">Nächste Woche →</button>
-
-  <table id="calendarTable">
-    <thead>
-      <tr id="calendarHeaderRow">
-        <th>Tisch</th>
-        <th id="calDay1"></th>
-        <th id="calDay2"></th>
-        <th id="calDay3"></th>
-        <th id="calDay4"></th>
-        <th id="calDay5"></th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-<div id="app"></div>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

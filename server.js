@@ -1,5 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
@@ -19,7 +19,7 @@ app.use(session({
   saveUninitialized: false
 }));
 
-const db = new sqlite3.Database('./data.db');
+const db = new Database('data.db');
 
 // ==================== MULTER UPLOAD ====================
 const storage = multer.diskStorage({
@@ -35,7 +35,8 @@ const upload = multer({ storage });
 // ==================== TABELLEN ====================
 db.serialize(() => {
 
-  db.run(`CREATE TABLE IF NOT EXISTS desks (
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS desks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
     x REAL,
@@ -43,40 +44,40 @@ db.serialize(() => {
     w REAL,
     h REAL,
     mode TEXT
-  )`);
+  );
 
-  db.run(`CREATE TABLE IF NOT EXISTS bookings (
+  CREATE TABLE IF NOT EXISTS bookings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     deskId INTEGER,
     date TEXT,
     user TEXT,
     startTime TEXT,
     endTime TEXT
-  )`);
+  );
 
-  db.run(`CREATE TABLE IF NOT EXISTS users (
+  CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
     passwordHash TEXT,
     initialPasswordHash TEXT
-  )`);
+  );
+`);
 
 // ==================== DEFAULT ADMIN USER ====================
-async function ensureDefaultAdminUser() {
-  const adminUser = await db.get(
-    'SELECT * FROM users WHERE username = ?',
-    ['admin']
-  );
+function ensureDefaultAdminUser() {
+  const adminUser = db.prepare(
+    'SELECT * FROM users WHERE username = ?'
+  ).get('admin');
 
   if (!adminUser) {
     console.log("Erstelle Standard-Admin: admin/admin");
 
     const hash = bcrypt.hashSync("admin", 10);
 
-    await db.run(
-      'INSERT INTO users (username, passwordHash, initialPasswordHash) VALUES (?, ?, ?)',
-      ['admin', hash, hash]
-    );
+    db.prepare(`
+      INSERT INTO users (username, passwordHash, initialPasswordHash)
+      VALUES (?, ?, ?)
+    `).run('admin', hash, hash);
   }
 }
 
@@ -88,19 +89,22 @@ ensureDefaultAdminUser();
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
-  db.get("SELECT * FROM users WHERE username=?", [username], (err, row) => {
-    if (err || !row) return res.json({ success: false });
+  const row = db.prepare(
+    "SELECT * FROM users WHERE username=?"
+  ).get(username);
 
-    const ok = bcrypt.compareSync(password, row.passwordHash);
-    if (!ok) return res.json({ success: false });
+  if (!row) return res.json({ success: false });
 
-    req.session.loggedIn = true;
-    req.session.username = username;
+  const ok = bcrypt.compareSync(password, row.passwordHash);
+  if (!ok) return res.json({ success: false });
 
-    const mustChange = bcrypt.compareSync(password, row.initialPasswordHash);
+  req.session.loggedIn = true;
+  req.session.username = username;
 
-    res.json({ success: true, mustChange });
-  });
+  const mustChange = row.initialPasswordHash !== null &&
+                     row.passwordHash === row.initialPasswordHash;
+
+  res.json({ success: true, mustChange });
 });
 
 // ==================== USER PASSWORD CHANGE ====================
@@ -112,35 +116,29 @@ app.post('/change-password', (req, res) => {
 
   const newHash = bcrypt.hashSync(newPassword, 10);
 
-  db.run(
-    `UPDATE users SET passwordHash=?, initialPasswordHash=NULL WHERE username=?`,
-    [newHash, username],
-    function(err) {
-      if (err) return res.json({ success: false });
-      res.json({ success: true });
-    }
-  );
+  db.prepare(`
+    UPDATE users SET passwordHash=?, initialPasswordHash=NULL WHERE username=?
+  `).run(newHash, username);
+
+  res.json({ success: true });
 });
 
 // ==================== SESSION CHECK ====================
-app.get('/session-check', async (req, res) => {
+app.get('/session-check', (req, res) => {
   if (!req.session.loggedIn) {
-    return res.json({
-      loggedIn: false
-    });
-  }
-
-  const user = await db.get(
-    'SELECT username, passwordHash, initialPasswordHash FROM users WHERE username = ?',
-    [req.session.username]
-  );
-
-  if (!user) {
     return res.json({ loggedIn: false });
   }
 
-  const mustChangePassword = user.initialPasswordHash !== null &&
-                             user.passwordHash === user.initialPasswordHash;
+  const user = db.prepare(`
+    SELECT username, passwordHash, initialPasswordHash
+    FROM users WHERE username = ?
+  `).get(req.session.username);
+
+  if (!user) return res.json({ loggedIn: false });
+
+  const mustChangePassword =
+    user.initialPasswordHash !== null &&
+    user.passwordHash === user.initialPasswordHash;
 
   res.json({
     loggedIn: true,
@@ -158,41 +156,32 @@ app.get('/logout', (req, res) => {
 });
 
 // ==================== ADMIN LOGIN ====================
-app.post('/api/admin/login', async (req, res) => {
+app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
 
-  const user = await db.get(
-    'SELECT * FROM users WHERE username = ?',
-    [username]
-  );
+  const user = db.prepare(
+    'SELECT * FROM users WHERE username = ?'
+  ).get(username);
 
-  if (!user) {
-    return res.json({ success: false });
-  }
+  if (!user) return res.json({ success: false });
 
   const valid = bcrypt.compareSync(password, user.passwordHash);
+  if (!valid) return res.json({ success: false });
 
-  if (!valid) {
-    return res.json({ success: false });
-  }
-
-  // Admin erkannt
   req.session.loggedIn = true;
   req.session.username = username;
 
-  // Admin muss Passwort ändern, wenn initialPasswordHash == passwordHash
-  const mustChangePassword = user.passwordHash === user.initialPasswordHash;
+  const mustChangePassword =
+    user.initialPasswordHash !== null &&
+    user.passwordHash === user.initialPasswordHash;
 
   req.session.mustChangePassword = mustChangePassword;
 
-  res.json({
-    success: true,
-    mustChangePassword
-  });
+  res.json({ success: true, mustChangePassword });
 });
 
 // ==================== ADMIN PASSWORD CHANGE ====================
-app.post('/api/admin/change-password', async (req, res) => {
+app.post('/api/admin/change-password', (req, res) => {
   const { username } = req.session;
   const { newPassword } = req.body;
 
@@ -202,10 +191,9 @@ app.post('/api/admin/change-password', async (req, res) => {
 
   const hash = bcrypt.hashSync(newPassword, 10);
 
-  await db.run(
-    'UPDATE users SET passwordHash = ?, initialPasswordHash = NULL WHERE username = ?',
-    [hash, username]
-  );
+  db.prepare(`
+    UPDATE users SET passwordHash = ?, initialPasswordHash = NULL WHERE username = ?
+  `).run(hash, username);
 
   req.session.mustChangePassword = false;
 
@@ -225,15 +213,16 @@ app.post('/api/admin/create-user', (req, res) => {
 
   const hash = bcrypt.hashSync(initialPassword, 10);
 
-  db.run(
-    `INSERT INTO users (username, passwordHash, initialPasswordHash)
-     VALUES (?, ?, ?)`,
-    [username, hash, hash],
-    function(err) {
-      if (err) return res.json({ success: false, reason: "exists" });
-      res.json({ success: true });
-    }
-  );
+  try {
+    db.prepare(`
+      INSERT INTO users (username, passwordHash, initialPasswordHash)
+      VALUES (?, ?, ?)
+    `).run(username, hash, hash);
+
+    res.json({ success: true });
+  } catch {
+    res.json({ success: false, reason: "exists" });
+  }
 });
 
 // ==================== FLOORPLAN UPLOAD ====================
@@ -242,44 +231,43 @@ app.post('/upload-floorplan', upload.single('file'), (req, res) => {
 });
 
 // ==================== DESKS API ====================
+// GET all desks and bookings
 app.get('/api/desks', (req, res) => {
-  db.all("SELECT * FROM desks", (err, desks) => {
-    db.all("SELECT * FROM bookings", (err2, bookings) => {
-      res.json({ desks, bookings });
-    });
-  });
+  const desks = db.prepare("SELECT * FROM desks").all();
+  const bookings = db.prepare("SELECT * FROM bookings").all();
+  res.json({ desks, bookings });
 });
 
+// POST a new desk
 app.post('/api/desks', (req, res) => {
   const { name, x, y, w, h, mode } = req.body;
-  db.run(
-    `INSERT INTO desks (name, x, y, w, h, mode) VALUES (?, ?, ?, ?, ?, ?)`,
-    [name, x, y, w, h, mode],
-    function(err) {
-      res.json({ success: !err, id: this.lastID });
-    }
-  );
+
+  const stmt = db.prepare(`
+    INSERT INTO desks (name, x, y, w, h, mode)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+
+  const result = stmt.run(name, x, y, w, h, mode);
+
+  res.json({ success: true, id: result.lastInsertRowid });
 });
 
+// PUT update a desk
 app.put('/api/desks/:id', (req, res) => {
   const { x, y, w, h } = req.body;
-  db.run(
-    `UPDATE desks SET x=?, y=?, w=?, h=? WHERE id=?`,
-    [x, y, w, h, req.params.id],
-    function(err) {
-      res.json({ success: !err });
-    }
-  );
+
+  db.prepare(`
+    UPDATE desks SET x=?, y=?, w=?, h=? WHERE id=?
+  `).run(x, y, w, h, req.params.id);
+
+  res.json({ success: true });
 });
 
+// DELETE a desk and its bookings
 app.delete('/api/desks/:id', (req, res) => {
-  db.run(`DELETE FROM desks WHERE id=?`, [req.params.id], function(err) {
-    if (err) return res.json({ success: false });
-
-    db.run(`DELETE FROM bookings WHERE deskId=?`, [req.params.id], function(err2) {
-      res.json({ success: !err2 });
-    });
-  });
+  db.prepare(`DELETE FROM desks WHERE id=?`).run(req.params.id);
+  db.prepare(`DELETE FROM bookings WHERE deskId=?`).run(req.params.id);
+  res.json({ success: true });
 });
 
 // ==================== BOOKING ====================
@@ -288,35 +276,29 @@ app.post('/api/book', (req, res) => {
 
   const normalizedDate = date.trim().slice(0, 10);
 
-  db.all(
-    `SELECT * FROM bookings WHERE deskId=? AND date=?`,
-    [deskId, normalizedDate],
-    (err, rows) => {
-      if (err) return res.json({ success: false });
+  const rows = db.prepare(`
+    SELECT * FROM bookings WHERE deskId=? AND date=?
+  `).all(deskId, normalizedDate);
 
-      if (!startTime && !endTime) {
-        if (rows.length > 0) return res.json({ success: false, reason: "Ganztag blockiert" });
-      } else {
-        for (const r of rows) {
-          if (!r.startTime || !r.endTime) {
-            return res.json({ success: false, reason: "Ganztag blockiert" });
-          }
-          if (!(endTime <= r.startTime || startTime >= r.endTime)) {
-            return res.json({ success: false, reason: "Zeitüberschneidung" });
-          }
-        }
-      }
+  if (!startTime && !endTime) {
+    if (rows.length > 0)
+      return res.json({ success: false, reason: "Ganztag blockiert" });
+  } else {
+    for (const r of rows) {
+      if (!r.startTime || !r.endTime)
+        return res.json({ success: false, reason: "Ganztag blockiert" });
 
-      db.run(
-        `INSERT INTO bookings (deskId, date, user, startTime, endTime)
-         VALUES (?, ?, ?, ?, ?)`,
-        [deskId, normalizedDate, user, startTime, endTime],
-        function(err2) {
-          res.json({ success: !err2 });
-        }
-      );
+      if (!(endTime <= r.startTime || startTime >= r.endTime))
+        return res.json({ success: false, reason: "Zeitüberschneidung" });
     }
-  );
+  }
+
+  db.prepare(`
+    INSERT INTO bookings (deskId, date, user, startTime, endTime)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(deskId, normalizedDate, user, startTime, endTime);
+
+  res.json({ success: true });
 });
 });
 
