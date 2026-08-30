@@ -34,34 +34,32 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ==================== TABELLEN ====================
-db.serialize(() => {
+db.exec(`
+CREATE TABLE IF NOT EXISTS desks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  x REAL,
+  y REAL,
+  w REAL,
+  h REAL,
+  mode TEXT
+);
 
-  db.exec(`
-  CREATE TABLE IF NOT EXISTS desks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    x REAL,
-    y REAL,
-    w REAL,
-    h REAL,
-    mode TEXT
-  );
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  deskId INTEGER,
+  date TEXT,
+  user TEXT,
+  startTime TEXT,
+  endTime TEXT
+);
 
-  CREATE TABLE IF NOT EXISTS bookings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    deskId INTEGER,
-    date TEXT,
-    user TEXT,
-    startTime TEXT,
-    endTime TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    passwordHash TEXT,
-    initialPasswordHash TEXT
-  );
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE,
+  passwordHash TEXT,
+  initialPasswordHash TEXT
+);
 `);
 
 // ==================== DEFAULT ADMIN USER ====================
@@ -360,7 +358,6 @@ app.post('/api/book', generalLimiter, (req, res) => {
   `).run(deskId, normalizedDate, user, startTime, endTime);
 
   res.json({ success: true });
-});
 });
 
 // ==================== ICS EXPORT ====================
