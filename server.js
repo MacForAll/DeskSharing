@@ -291,14 +291,14 @@ app.post('/upload-floorplan', generalLimiter, upload.single('file'), (req, res) 
 
 // ==================== DESKS API ====================
 // GET all desks and bookings
-app.get('/api/desks', (req, res) => {
+app.get('/api/desks', generalLimiter, (req, res) => {
   const desks = db.prepare("SELECT * FROM desks").all();
   const bookings = db.prepare("SELECT * FROM bookings").all();
   res.json({ desks, bookings });
 });
 
 // POST a new desk
-app.post('/api/desks', (req, res) => {
+app.post('/api/desks', generalLimiter, (req, res) => {
   const { name, x, y, w, h, mode } = req.body;
 
   const stmt = db.prepare(`
@@ -312,7 +312,7 @@ app.post('/api/desks', (req, res) => {
 });
 
 // PUT update a desk
-app.put('/api/desks/:id', (req, res) => {
+app.put('/api/desks/:id', generalLimiter, (req, res) => {
   const { x, y, w, h } = req.body;
 
   db.prepare(`
@@ -323,7 +323,7 @@ app.put('/api/desks/:id', (req, res) => {
 });
 
 // DELETE a desk and its bookings
-app.delete('/api/desks/:id', (req, res) => {
+app.delete('/api/desks/:id', generalLimiter, (req, res) => {
   db.prepare(`DELETE FROM desks WHERE id=?`).run(req.params.id);
   db.prepare(`DELETE FROM bookings WHERE deskId=?`).run(req.params.id);
   res.json({ success: true });
@@ -361,7 +361,7 @@ app.post('/api/book', generalLimiter, (req, res) => {
 });
 
 // ==================== ICS EXPORT ====================
-app.get('/api/ical', (req, res) => {
+app.get('/api/ical', generalLimiter, (req, res) => {
   let { deskId, date } = req.query;
 
   const normalizedDate = date.trim().slice(0, 10);
@@ -402,7 +402,7 @@ app.get('/api/ical', (req, res) => {
 });
 
 // ==================== ICS WEEK ====================
-app.get('/api/ical-week', (req, res) => {
+app.get('/api/ical-week', generalLimiter, (req, res) => {
   let { start } = req.query;
   const startDate = start.trim().slice(0, 10);
 
