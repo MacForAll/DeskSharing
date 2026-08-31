@@ -82,10 +82,7 @@ const isMainPage = document.getElementById('floorplan') !== null;
 
 // ==================== INIT (nur auf main.html) ====================
 if (isMainPage) {
-
-    setMinMaxDate();
-    loadFromServer();
-    setupExportButtons();
+    initializeMainPage();
 
     // Floorplan reload
     window.addEventListener('load', () => {
@@ -100,6 +97,23 @@ if (isMainPage) {
             if (!placingMode) return;
             placeDesk(e);
         });
+    }
+
+    async function initializeMainPage() {
+        const response = await fetch('/session-check');
+        const sessionData = await response.json();
+
+        if (!sessionData.loggedIn) {
+            window.location.replace("index.html");
+            return;
+        }
+
+        currentUser = sessionData.username || "Unbekannt";
+        isAdmin = sessionData.isAdmin === true;
+
+        setMinMaxDate();
+        await loadFromServer();
+        setupExportButtons();
     }
 }
 
