@@ -232,5 +232,14 @@ h1 {
 </div>
 
 <script src="script.js"></script>
+<script>
+  fetch('/session-check')
+    .then(res => res.json())
+    .then(data => {
+      if (data.loggedIn) {
+        window.location.replace('main.html');
+      }
+    });
+</script>
 </body>
 </html>
