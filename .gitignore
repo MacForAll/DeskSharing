@@ -4,3 +4,5 @@ data.db
 *.db-wal
 .DS_Store
 public/uploads/floorplan.png
+backups/*
+!backups/.gitkeep
