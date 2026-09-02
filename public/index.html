@@ -8,7 +8,23 @@
 <style>
   body {
     font-family: Arial, sans-serif;
-    margin: 40px;
+    margin: 0;
+    min-height: 100vh;
+    background: url("assets/social-preview.png") center / cover fixed no-repeat;
+  }
+
+  #welcomeScreen {
+    position: fixed;
+    inset: 0;
+    background: inherit;
+    cursor: pointer;
+    z-index: 2000;
+  }
+
+  #loginContent {
+    display: none;
+    min-height: 100vh;
+    padding: 40px;
   }
 
   #adminError {
@@ -174,24 +190,28 @@ h1 {
 </head>
 <body>
 
-<h1>DeskSharing – Login</h1>
+<div id="welcomeScreen" role="button" tabindex="0" aria-label="Login anzeigen"></div>
 
-<div id="loginBox">
-  <h3>User Login</h3>
+<main id="loginContent">
+  <h1>DeskSharing – Login</h1>
 
-  <form id="loginForm">
-    <input type="text" id="username" placeholder="Benutzername" required>
-    <input type="password" id="password" placeholder="Passwort" required>
-    <button type="submit" id="userLoginBtn">Login</button>
-    <div id="loginMessage" style="color: #c00; margin-top: 10px; display: none;"></div>
-  </form>
+  <div id="loginBox">
+    <h3>User Login</h3>
 
-  <hr>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Benutzername" required>
+      <input type="password" id="password" placeholder="Passwort" required>
+      <button type="submit" id="userLoginBtn">Login</button>
+      <div id="loginMessage" style="color: #c00; margin-top: 10px; display: none;"></div>
+    </form>
 
-  <button id="adminLoginBtn" style="background:#444;color:white;">
-    Admin Login
-  </button>
-</div>
+    <hr>
+
+    <button id="adminLoginBtn" style="background:#444;color:white;">
+      Admin Login
+    </button>
+  </div>
+</main>
 
 <!-- ADMIN LOGIN MODAL -->
 <div id="adminModal" class="modal-overlay">
@@ -233,6 +253,22 @@ h1 {
 
 <script src="script.js"></script>
 <script>
+  const welcomeScreen = document.getElementById('welcomeScreen');
+  const loginContent = document.getElementById('loginContent');
+
+  function showLogin() {
+    welcomeScreen.style.display = 'none';
+    loginContent.style.display = 'block';
+  }
+
+  welcomeScreen.addEventListener('click', showLogin);
+  welcomeScreen.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      showLogin();
+    }
+  });
+
   fetch('/session-check')
     .then(res => res.json())
     .then(data => {
