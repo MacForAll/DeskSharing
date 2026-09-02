@@ -315,7 +315,9 @@ app.post('/upload-floorplan', generalLimiter, upload.single('file'), (req, res) 
 app.get('/api/desks', generalLimiter, (req, res) => {
   const desks = db.prepare("SELECT * FROM desks").all();
   const bookings = db.prepare(`
-    SELECT bookings.*, COALESCE(users.useralias, bookings.user) AS user
+    SELECT bookings.*,
+           bookings.user AS username,
+           COALESCE(users.useralias, bookings.user) AS user
     FROM bookings
     LEFT JOIN users ON users.username = bookings.user
   `).all();
@@ -384,6 +386,26 @@ app.post('/api/book', generalLimiter, (req, res) => {
     VALUES (?, ?, ?, ?, ?)
   `).run(deskId, normalizedDate, username, startTime, endTime);
 
+  res.json({ success: true });
+});
+
+// DELETE own booking or any booking as admin
+app.delete('/api/bookings/:id', generalLimiter, (req, res) => {
+  const username = req.session.username;
+  if (!username) return res.status(401).json({ success: false, reason: "Nicht angemeldet" });
+
+  const booking = db.prepare(
+    'SELECT user FROM bookings WHERE id = ?'
+  ).get(req.params.id);
+
+  if (!booking) return res.status(404).json({ success: false, reason: "not_found" });
+
+  const isAdmin = username === "admin";
+  if (!isAdmin && booking.user !== username) {
+    return res.status(403).json({ success: false, reason: "forbidden" });
+  }
+
+  db.prepare('DELETE FROM bookings WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
 

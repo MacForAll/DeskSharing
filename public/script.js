@@ -346,9 +346,43 @@ function renderDesks() {
     const bookedToday = bookings.filter(b => b.deskId === desk.id && b.date === date);
     if (bookedToday.length > 0) {
       div.classList.add('booked');
-      div.innerText += "\n" + bookedToday.map(b =>
-        b.startTime && b.endTime ? `${b.user} ${b.startTime}-${b.endTime}` : `${b.user} (ganztags)`
-      ).join("\n");
+    bookedToday.forEach(b => {
+      const line = document.createElement('div');
+      line.textContent = b.startTime && b.endTime
+        ? `${b.user} ${b.startTime}-${b.endTime}`
+        : `${b.user} (ganztags)`;
+      if (isAdmin || b.username === currentUser) {
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.textContent = 'Stornieren';
+        cancelButton.onclick = event => {
+          event.stopPropagation();
+          deleteBooking(b);
+        };
+        line.appendChild(cancelButton);
+      }
+      div.appendChild(line);
+    });
+    }
+
+    async function deleteBooking(booking) {
+      const period = booking.startTime && booking.endTime
+        ? `von ${booking.startTime} bis ${booking.endTime}`
+        : 'ganztags';
+      const question = `Möchtest du deine Buchung für ${booking.date} ${period} wirklich stornieren?`;
+      if (!confirm(question)) return;
+
+      const response = await fetch(`/api/bookings/${booking.id}`, { method: 'DELETE' });
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(data.reason === 'forbidden'
+          ? 'Diese Buchung darfst du nicht stornieren.'
+          : 'Die Buchung konnte nicht storniert werden.');
+        return;
+      }
+
+      await loadFromServer();
     }
 
     div.onclick = () => {
@@ -569,11 +603,23 @@ function renderCalendar() {
 
       if (booked.length > 0) {
         td.classList.add('calendar-booked');
-        td.innerText = booked.map(b =>
-          b.startTime && b.endTime
+        booked.forEach(b => {
+          const line = document.createElement('div');
+          line.textContent = b.startTime && b.endTime
             ? `${b.user} ${b.startTime}-${b.endTime}`
-            : `${b.user} (ganztags)`
-        ).join("\n");
+            : `${b.user} (ganztags)`;
+          if (isAdmin || b.username === currentUser) {
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.textContent = 'Stornieren';
+            cancelButton.onclick = event => {
+              event.stopPropagation();
+              deleteBooking(b);
+            };
+            line.appendChild(cancelButton);
+          }
+          td.appendChild(line);
+        });
         td.onclick = () => {
           downloadICS(desk.id, day);
         };
