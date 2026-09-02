@@ -187,23 +187,28 @@ async function adminLogout() {
 // ==================== ADMIN: USER CREATE ====================
 async function createUser() {
   const username = document.getElementById("newUserName").value.trim();
+  const useralias = document.getElementById("newUserAlias").value.trim();
   const initialPassword = document.getElementById("newUserPass").value.trim();
 
-  if (!username || !initialPassword) {
-    alert("Bitte Benutzername und Initialpasswort eingeben.");
+  if (!username || !useralias || !initialPassword) {
+    alert("Bitte Benutzername, Useralias und Initialpasswort eingeben.");
     return;
   }
 
   const res = await fetch('/api/admin/create-user', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, initialPassword })
+    body: JSON.stringify({ username, useralias, initialPassword })
   });
 
   const data = await res.json();
 
   if (data.success) {
     alert("Benutzer angelegt.");
+  } else if (data.reason === "alias") {
+    alert("Useralias existiert bereits.");
+  } else if (data.reason === "missing") {
+    alert("Bitte alle Felder ausfüllen.");
   } else {
     alert("Benutzer existiert bereits.");
   }

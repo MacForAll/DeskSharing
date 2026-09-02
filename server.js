@@ -57,10 +57,22 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE,
+  useralias TEXT,
   passwordHash TEXT,
   initialPasswordHash TEXT
 );
 `);
+
+const userColumns = db.prepare('PRAGMA table_info(users)').all();
+if (!userColumns.some(column => column.name === 'useralias')) {
+  db.exec('ALTER TABLE users ADD COLUMN useralias TEXT');
+}
+db.prepare(`
+  UPDATE users
+  SET useralias = username
+  WHERE useralias IS NULL OR useralias = ''
+`).run();
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_useralias_unique ON users(useralias)');
 
 // ==================== DEFAULT ADMIN USER ====================
 function ensureDefaultAdminUser() {
@@ -74,9 +86,9 @@ function ensureDefaultAdminUser() {
     const hash = bcrypt.hashSync("admin", 10);
 
     db.prepare(`
-      INSERT INTO users (username, passwordHash, initialPasswordHash)
-      VALUES (?, ?, ?)
-    `).run('admin', hash, hash);
+      INSERT INTO users (username, useralias, passwordHash, initialPasswordHash)
+      VALUES (?, ?, ?, ?)
+    `).run('admin', 'admin', hash, hash);
   }
 }
 
@@ -179,7 +191,7 @@ app.get('/session-check', (req, res) => {
   }
 
   const user = db.prepare(`
-    SELECT username, passwordHash, initialPasswordHash
+    SELECT username, useralias, passwordHash, initialPasswordHash
     FROM users WHERE username = ?
   `).get(req.session.username);
 
@@ -192,6 +204,7 @@ app.get('/session-check', (req, res) => {
   res.json({
     loggedIn: true,
     username: user.username,
+    useralias: user.useralias || user.username,
     mustChangePassword,
     isAdmin: user.username === "admin" && !mustChangePassword
   });
@@ -268,19 +281,27 @@ app.post('/api/admin/logout', (req, res) => {
 
 // ==================== ADMIN: CREATE USER ====================
 app.post('/api/admin/create-user', generalLimiter, (req, res) => {
-  const { username, initialPassword } = req.body;
+  const { username, useralias, initialPassword } = req.body;
+
+  if (!username || !useralias || !initialPassword) {
+    return res.json({ success: false, reason: "missing" });
+  }
 
   const hash = bcrypt.hashSync(initialPassword, 10);
 
   try {
     db.prepare(`
-      INSERT INTO users (username, passwordHash, initialPasswordHash)
-      VALUES (?, ?, ?)
-    `).run(username, hash, hash);
+      INSERT INTO users (username, useralias, passwordHash, initialPasswordHash)
+      VALUES (?, ?, ?, ?)
+    `).run(username, useralias, hash, hash);
 
     res.json({ success: true });
-  } catch {
-    res.json({ success: false, reason: "exists" });
+  } catch (error) {
+    const reason = error.code === "SQLITE_CONSTRAINT_UNIQUE" &&
+      error.message.includes("users.useralias")
+      ? "alias"
+      : "exists";
+    res.json({ success: false, reason });
   }
 });
 
@@ -293,7 +314,11 @@ app.post('/upload-floorplan', generalLimiter, upload.single('file'), (req, res) 
 // GET all desks and bookings
 app.get('/api/desks', generalLimiter, (req, res) => {
   const desks = db.prepare("SELECT * FROM desks").all();
-  const bookings = db.prepare("SELECT * FROM bookings").all();
+  const bookings = db.prepare(`
+    SELECT bookings.*, COALESCE(users.useralias, bookings.user) AS user
+    FROM bookings
+    LEFT JOIN users ON users.username = bookings.user
+  `).all();
   res.json({ desks, bookings });
 });
 
@@ -331,8 +356,10 @@ app.delete('/api/desks/:id', generalLimiter, (req, res) => {
 
 // ==================== BOOKING ====================
 app.post('/api/book', generalLimiter, (req, res) => {
-  const { deskId, date, user, startTime, endTime } = req.body;
+  const { deskId, date, startTime, endTime } = req.body;
+  const username = req.session.username;
 
+  if (!username) return res.json({ success: false, reason: "Nicht angemeldet" });
   const normalizedDate = date.trim().slice(0, 10);
 
   const rows = db.prepare(`
@@ -355,7 +382,7 @@ app.post('/api/book', generalLimiter, (req, res) => {
   db.prepare(`
     INSERT INTO bookings (deskId, date, user, startTime, endTime)
     VALUES (?, ?, ?, ?, ?)
-  `).run(deskId, normalizedDate, user, startTime, endTime);
+  `).run(deskId, normalizedDate, username, startTime, endTime);
 
   res.json({ success: true });
 });
@@ -367,9 +394,12 @@ app.get('/api/ical', generalLimiter, (req, res) => {
   const normalizedDate = date.trim().slice(0, 10);
 
   db.all(
-    `SELECT desks.name AS deskName, bookings.*
+    `SELECT desks.name AS deskName,
+            bookings.*,
+            COALESCE(users.useralias, bookings.user) AS user
      FROM bookings
      JOIN desks ON desks.id = bookings.deskId
+     LEFT JOIN users ON users.username = bookings.user
      WHERE bookings.deskId=? AND bookings.date=?`,
     [deskId, normalizedDate],
     (err, rows) => {
@@ -414,9 +444,12 @@ app.get('/api/ical-week', generalLimiter, (req, res) => {
   }
 
   db.all(
-    `SELECT desks.name AS deskName, bookings.*
+    `SELECT desks.name AS deskName,
+            bookings.*,
+            COALESCE(users.useralias, bookings.user) AS user
      FROM bookings
      JOIN desks ON desks.id = bookings.deskId
+     LEFT JOIN users ON users.username = bookings.user
      WHERE bookings.date IN (${weekDays.map(() => '?').join(',')})`,
     weekDays,
     (err, rows) => {
