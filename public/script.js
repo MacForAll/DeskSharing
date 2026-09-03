@@ -365,26 +365,6 @@ function renderDesks() {
     });
     }
 
-    async function deleteBooking(booking) {
-      const period = booking.startTime && booking.endTime
-        ? `von ${booking.startTime} bis ${booking.endTime}`
-        : 'ganztags';
-      const question = `Möchtest du deine Buchung für ${booking.date} ${period} wirklich stornieren?`;
-      if (!confirm(question)) return;
-
-      const response = await fetch(`/api/bookings/${booking.id}`, { method: 'DELETE' });
-      const data = await response.json();
-
-      if (!data.success) {
-        alert(data.reason === 'forbidden'
-          ? 'Diese Buchung darfst du nicht stornieren.'
-          : 'Die Buchung konnte nicht storniert werden.');
-        return;
-      }
-
-      await loadFromServer();
-    }
-
     div.onclick = () => {
       if (placingMode) return;
       openModal(desk, date);
@@ -487,6 +467,26 @@ function makeDraggableResizable(div, desk) {
       document.onmouseup = null;
     };
   };
+}
+
+async function deleteBooking(booking) {
+  const period = booking.startTime && booking.endTime
+    ? `von ${booking.startTime} bis ${booking.endTime}`
+    : 'ganztags';
+  const question = `Möchtest du deine Buchung für ${booking.date} ${period} wirklich stornieren?`;
+  if (!confirm(question)) return;
+
+  const response = await fetch(`/api/bookings/${booking.id}`, { method: 'DELETE' });
+  const data = await response.json();
+
+  if (!data.success) {
+    alert(data.reason === 'forbidden'
+      ? 'Diese Buchung darfst du nicht stornieren.'
+      : 'Die Buchung konnte nicht storniert werden.');
+    return;
+  }
+
+  await loadFromServer();
 }
 
 // ==================== BOOKING MODAL ====================
