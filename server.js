@@ -415,7 +415,7 @@ app.get('/api/ical', generalLimiter, (req, res) => {
 
   const normalizedDate = date.trim().slice(0, 10);
 
-  db.all(
+  const rows = db.prepare(
     `SELECT desks.name AS deskName,
             bookings.*,
             COALESCE(users.useralias, bookings.user) AS user
@@ -423,34 +423,32 @@ app.get('/api/ical', generalLimiter, (req, res) => {
      JOIN desks ON desks.id = bookings.deskId
      LEFT JOIN users ON users.username = bookings.user
      WHERE bookings.deskId=? AND bookings.date=?`,
-    [deskId, normalizedDate],
-    (err, rows) => {
-      if (err || rows.length === 0) {
-        return res.status(404).send("Keine Buchungen gefunden");
-      }
+  ).all(deskId, normalizedDate);
 
-      let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//DeskBooker//DE\n";
+  if (rows.length === 0) {
+    return res.status(404).send("Keine Buchungen gefunden");
+  }
 
-      rows.forEach(r => {
-        const dt = r.date.replace(/-/g, "");
-        const start = r.startTime ? r.startTime.replace(":", "") : "0900";
-        const end = r.endTime ? r.endTime.replace(":", "") : "1700";
+  let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//DeskBooker//DE\n";
 
-        ics += "BEGIN:VEVENT\n";
-        ics += `SUMMARY:${r.user} – ${r.deskName}\n`;
-        ics += `DTSTART:${dt}T${start}00\n`;
-        ics += `DTEND:${dt}T${end}00\n`;
-        ics += `DESCRIPTION:Buchung für ${r.deskName}\n`;
-        ics += "END:VEVENT\n";
-      });
+  rows.forEach(r => {
+    const dt = r.date.replace(/-/g, "");
+    const start = r.startTime ? r.startTime.replace(":", "") : "0900";
+    const end = r.endTime ? r.endTime.replace(":", "") : "1700";
 
-      ics += "END:VCALENDAR";
+    ics += "BEGIN:VEVENT\n";
+    ics += `SUMMARY:${r.user} – ${r.deskName}\n`;
+    ics += `DTSTART:${dt}T${start}00\n`;
+    ics += `DTEND:${dt}T${end}00\n`;
+    ics += `DESCRIPTION:Buchung für ${r.deskName}\n`;
+    ics += "END:VEVENT\n";
+  });
 
-      res.setHeader("Content-Type", "text/calendar");
-      res.setHeader("Content-Disposition", `attachment; filename="desk_${deskId}_${normalizedDate}.ics"`);
-      res.send(ics);
-    }
-  );
+  ics += "END:VCALENDAR";
+
+  res.setHeader("Content-Type", "text/calendar");
+  res.setHeader("Content-Disposition", `attachment; filename="desk_${deskId}_${normalizedDate}.ics"`);
+  res.send(ics);
 });
 
 // ==================== ICS WEEK ====================
@@ -465,7 +463,7 @@ app.get('/api/ical-week', generalLimiter, (req, res) => {
     weekDays.push(d.toISOString().slice(0, 10));
   }
 
-  db.all(
+  const rows = db.prepare(
     `SELECT desks.name AS deskName,
             bookings.*,
             COALESCE(users.useralias, bookings.user) AS user
@@ -473,34 +471,32 @@ app.get('/api/ical-week', generalLimiter, (req, res) => {
      JOIN desks ON desks.id = bookings.deskId
      LEFT JOIN users ON users.username = bookings.user
      WHERE bookings.date IN (${weekDays.map(() => '?').join(',')})`,
-    weekDays,
-    (err, rows) => {
-      if (err || rows.length === 0) {
-        return res.status(404).send("Keine Buchungen gefunden");
-      }
+  ).all(...weekDays);
 
-      let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//DeskBooker//DE\n";
+  if (rows.length === 0) {
+    return res.status(404).send("Keine Buchungen gefunden");
+  }
 
-      rows.forEach(r => {
-        const dt = r.date.replace(/-/g, "");
-        const start = r.startTime ? r.startTime.replace(":", "") : "0900";
-        const end = r.endTime ? r.endTime.replace(":", "") : "1700";
+  let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//DeskBooker//DE\n";
 
-        ics += "BEGIN:VEVENT\n";
-        ics += `SUMMARY:${r.user} – ${r.deskName}\n`;
-        ics += `DTSTART:${dt}T${start}00\n`;
-        ics += `DTEND:${dt}T${end}00\n`;
-        ics += `DESCRIPTION:Buchung für ${r.deskName}\n`;
-        ics += "END:VEVENT\n";
-      });
+  rows.forEach(r => {
+    const dt = r.date.replace(/-/g, "");
+    const start = r.startTime ? r.startTime.replace(":", "") : "0900";
+    const end = r.endTime ? r.endTime.replace(":", "") : "1700";
 
-      ics += "END:VCALENDAR";
+    ics += "BEGIN:VEVENT\n";
+    ics += `SUMMARY:${r.user} – ${r.deskName}\n`;
+    ics += `DTSTART:${dt}T${start}00\n`;
+    ics += `DTEND:${dt}T${end}00\n`;
+    ics += `DESCRIPTION:Buchung für ${r.deskName}\n`;
+    ics += "END:VEVENT\n";
+  });
 
-      res.setHeader("Content-Type", "text/calendar");
-      res.setHeader("Content-Disposition", `attachment; filename="week_${startDate}.ics"`);
-      res.send(ics);
-    }
-  );
+  ics += "END:VCALENDAR";
+
+  res.setHeader("Content-Type", "text/calendar");
+  res.setHeader("Content-Disposition", `attachment; filename="week_${startDate}.ics"`);
+  res.send(ics);
 });
 
 // ==================== FRONTEND ====================
